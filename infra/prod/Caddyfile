@@ -1,0 +1,43 @@
+# HTTPS อัตโนมัติ (Let's Encrypt) · APP_HOST มาจาก .env
+{$APP_HOST} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(self), geolocation=(), microphone=()"
+		# ใช้กับทุกคำตอบ (หน้าเว็บและ API) · Next ต้องการ inline script/style สำหรับ hydration
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		-Server
+	}
+	log {
+		output stdout
+		format json
+	}
+
+	# health/ready ใช้ตรวจจากในเครือข่าย Docker เท่านั้น ไม่เปิดสู่ภายนอก
+	# (ต้องเป็น handle: Caddy เรียง respond ไว้หลัง handle_path เสมอ ถ้าใช้ respond เฉยๆ จะไม่มีผล)
+	@internal path /api/health /api/ready
+	handle @internal {
+		respond 404
+	}
+
+	# /api/* → API ทุกตัว (ตัด /api ออกก่อนส่ง) · หา replica ใหม่จาก DNS ของ Docker ทุก 5 วินาที
+	handle_path /api/* {
+		reverse_proxy {
+			dynamic a {
+				name api
+				port 4100
+				refresh 5s
+			}
+			lb_policy least_conn
+			lb_try_duration 5s
+			fail_duration 30s
+		}
+	}
+
+	# หน้าเว็บ (apps/web) จะเพิ่มเมื่อสร้าง image ของเว็บ
+	handle {
+		respond "coming soon" 200
+	}
+}

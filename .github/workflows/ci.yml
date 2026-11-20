@@ -1,0 +1,44 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: rental_owner
+          POSTGRES_PASSWORD: rental_owner_dev
+          POSTGRES_DB: rental
+        ports: ["54330:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rental_owner -d rental" --health-interval 2s --health-retries 30
+      valkey:
+        image: valkey/valkey:9.0-alpine
+        ports: ["63800:6379"]
+        options: >-
+          --health-cmd "valkey-cli ping" --health-interval 2s --health-retries 30
+    env:
+      DATABASE_OWNER_URL: postgres://rental_owner:rental_owner_dev@localhost:54330/rental
+      DATABASE_APP_URL: postgres://rental_api:rental_api_dev@localhost:54330/rental
+      RENTAL_API_DB_PASSWORD: rental_api_dev
+      VALKEY_URL: redis://localhost:63800
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - run: pnpm db:roles
+      - run: pnpm typecheck
+      - run: pnpm test

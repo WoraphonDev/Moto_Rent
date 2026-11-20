@@ -1,0 +1,238 @@
+.loading {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+/* แถบบนสีเข้ม (Friday) */
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px 0 0;
+  background: var(--topbar);
+  color: var(--topbar-ink);
+}
+.brand {
+  width: 216px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 16px;
+  font-family: var(--font-head);
+  font-weight: 600;
+  overflow: hidden;
+}
+.brand :global(.sun) {
+  width: 26px;
+  height: 26px;
+}
+.orgName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.spacer {
+  flex: 1;
+}
+.sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--topbar-muted);
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #a9d3b0;
+}
+.dot[data-online='false'] {
+  background: var(--accent);
+}
+.user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.topBtn {
+  white-space: nowrap;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--topbar-line);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--topbar-ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+.topBtn:hover {
+  background: var(--topbar-field);
+}
+
+/* เมนูข้างขาว (Friday) · หน้าที่อยู่ = ครีมเข้ม + ไอคอนส้ม (MIX) */
+.body {
+  display: flex;
+  min-height: calc(100dvh - 50px);
+}
+.side {
+  width: 216px;
+  flex: none;
+  background: var(--card);
+  border-right: 1px solid var(--line);
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+.navLink:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+.navLink[aria-current='page'] {
+  background: var(--sunk);
+  color: var(--ink);
+  font-weight: 600;
+}
+.navLink[aria-current='page'] svg {
+  color: var(--accent);
+}
+.navSection {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 14px 10px 6px;
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: 20px 24px 32px;
+}
+
+.bottom {
+  display: none;
+}
+
+/* มือถือ: ไม่มีเมนูข้าง · แถบเมนูล่างลอยสีเข้ม มีชื่อทุกแท็บ */
+@media (max-width: 900px) {
+  .side,
+  .userName,
+  .topBtn:last-of-type {
+    display: none;
+  }
+  .brand {
+    width: auto;
+  }
+  .main {
+    padding: 14px 14px 110px;
+  }
+  .bottom {
+    display: flex;
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    z-index: 20;
+    padding: 6px 4px;
+    border-radius: 14px;
+    background: var(--topbar);
+    box-shadow: var(--shadow-float);
+  }
+  .bottomLink {
+    flex: 1;
+    min-width: 0;
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: 0;
+    background: none;
+    color: var(--topbar-muted);
+    font-size: 11px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .bottomIcon {
+    width: 50px;
+    height: 30px;
+    border-radius: var(--radius-control);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .bottomLink[aria-current='page'] {
+    color: var(--topbar-ink);
+    font-weight: 600;
+  }
+  .bottomLink[aria-current='page'] .bottomIcon {
+    background: var(--bg);
+    color: var(--accent);
+  }
+}
+
+.lock {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgb(42 33 27 / 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.lockCard {
+  width: 100%;
+  max-width: 360px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+/* มือถือจอเล็ก: แถบบนต้องไม่ตัดบรรทัด · เหลือจุดสถานะเน็ต (มีคำอ่านสำหรับโปรแกรมอ่านจอ) */
+@media (max-width: 420px) {
+  .top {
+    gap: 8px;
+    padding-right: 10px;
+  }
+  .brand {
+    padding-left: 12px;
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .spacer {
+    display: none;
+  }
+  .syncText {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+}

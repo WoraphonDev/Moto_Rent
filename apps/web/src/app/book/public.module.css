@@ -1,0 +1,410 @@
+/* หน้าของลูกค้า (เฟส 3): MIX มากขึ้น · Anuphan ทั้งหน้า · พื้นครีม · มุมโค้ง 14 · ภาษาอังกฤษ */
+.shell {
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+}
+.shell :global(h1),
+.shell :global(h2),
+.shell :global(h3),
+.shell :global(button),
+.shell :global(input),
+.shell :global(select),
+.shell :global(textarea) {
+  font-family: inherit;
+}
+.top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 18px 18px 6px;
+}
+.brand {
+  font-weight: 600;
+  font-size: 18px;
+}
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 8px 18px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.hero h1 {
+  font-size: 30px;
+  line-height: 1.2;
+}
+.hero p {
+  color: var(--muted);
+  margin-top: 4px;
+  font-size: 15px;
+}
+.cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: flex-start;
+}
+.main {
+  flex: 3 1 520px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.aside {
+  flex: 2 1 300px;
+  min-width: 0;
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.card h2 {
+  font-size: 19px;
+}
+.step {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  margin-right: 8px;
+}
+.typeRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line-subtle);
+  flex-wrap: wrap;
+}
+.typeRow:first-of-type {
+  border-top: 0;
+}
+.typeName {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.typeName b {
+  font-size: 16px;
+}
+.counter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.counter button {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  font-size: 22px;
+  cursor: pointer;
+}
+.counter button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.counter output {
+  min-width: 28px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 18px;
+}
+.calHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.calGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+.dow {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+.day {
+  min-height: 48px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 2px;
+}
+.day small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.day:disabled {
+  background: var(--sunk);
+  color: var(--faint);
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+.day[aria-pressed='true'] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.day[aria-pressed='true'] small {
+  color: #d7e7e4;
+}
+.inRange {
+  background: var(--primary-soft);
+  border-color: var(--primary-soft);
+}
+.row2 {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.row2 > * {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.field small {
+  font-weight: 400;
+  color: var(--muted);
+}
+.input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--card);
+  font-size: 16px;
+}
+.check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 15px;
+}
+.check input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--primary);
+  margin: 0;
+  flex: none;
+}
+.seg {
+  display: flex;
+  gap: 8px;
+}
+.seg label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.seg label:has(input:checked) {
+  border: 2px solid var(--primary);
+  background: var(--primary-soft);
+  font-weight: 600;
+}
+.honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.summaryLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 15px;
+}
+.total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.total b {
+  font-size: 28px;
+  font-weight: 600;
+}
+.primary {
+  min-height: 56px;
+  border-radius: 14px;
+  border: 0;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+}
+.primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ghost {
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 16px;
+}
+.note {
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.noteYellow {
+  background: var(--warn-soft);
+  color: var(--warn-text);
+}
+.noteGreen {
+  background: var(--ok-soft);
+  color: var(--ok-text);
+}
+.noteRed {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+.nowCard {
+  background: var(--primary);
+  color: #fff;
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.nowLabel {
+  align-self: flex-start;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--bg);
+  padding: 4px 12px;
+  border-radius: 8px;
+}
+.code {
+  font-size: 44px;
+  font-weight: 600;
+  letter-spacing: 4px;
+  line-height: 1.1;
+}
+.faq details {
+  border-top: 1px solid var(--line-subtle);
+  padding: 12px 0;
+}
+.faq details:first-of-type {
+  border-top: 0;
+}
+.faq summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+}
+.faq p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 6px;
+}
+.steps li {
+  flex: 1;
+  font-size: 12px;
+  text-align: center;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.steps li::before {
+  content: '';
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+}
+.steps li[data-done='true'] {
+  color: var(--ink);
+  font-weight: 600;
+}
+.steps li[data-done='true']::before {
+  background: var(--accent);
+}
+.kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  font-size: 15px;
+}
+.kv dt {
+  color: var(--muted);
+}
+.kv dd {
+  margin: 0;
+}
+
+/* มือถือ: สรุปไม่ลอย ลงไปท้ายฟอร์ม */
+@media (max-width: 760px) {
+  .aside {
+    position: static;
+  }
+  .hero h1 {
+    font-size: 25px;
+  }
+  .code {
+    font-size: 36px;
+  }
+}

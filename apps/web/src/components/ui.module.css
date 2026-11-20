@@ -1,0 +1,62 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+}
+.title {
+  font-size: 26px;
+  line-height: 1.25;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.stepBtn {
+  width: var(--tap);
+  height: var(--tap);
+  flex: none;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  font-size: 24px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.stepBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.stepValue {
+  flex: 1;
+  text-align: center;
+}
+.stepValue b {
+  font-family: var(--font-head);
+  font-size: 30px;
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .title {
+    font-size: 22px;
+  }
+  .actions {
+    width: 100%;
+  }
+  .actions > * {
+    flex: 1;
+  }
+}

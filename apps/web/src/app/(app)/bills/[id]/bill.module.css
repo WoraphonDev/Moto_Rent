@@ -1,0 +1,186 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1200px;
+}
+.cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+.colMain {
+  flex: 3 1 460px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.colSide {
+  flex: 2 1 340px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.lines {
+  list-style: none;
+  margin: 0;
+  padding: 0 16px;
+}
+.lines li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line-subtle);
+  font-size: 14px;
+}
+.lines li:first-child {
+  border-top: 0;
+}
+.lines b {
+  white-space: nowrap;
+}
+.neg {
+  color: var(--ok-text);
+}
+.totals {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+.totals dt {
+  color: var(--muted);
+}
+.totals dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+}
+.balanceLabel {
+  align-self: center;
+}
+.balance {
+  font-family: var(--font-head);
+  font-size: 24px;
+}
+.receipt {
+  font-family: var(--font-head);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  overflow-wrap: anywhere;
+}
+.nowBtn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--primary);
+  font-weight: 600;
+}
+.nowBtn:hover {
+  color: var(--primary-hover);
+}
+.kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  font-size: 14px;
+  cursor: pointer;
+}
+.kind input {
+  margin: 0;
+  accent-color: var(--primary);
+}
+.kind[data-on='true'] {
+  border: 2px solid var(--primary);
+  background: var(--primary-soft);
+  font-weight: 600;
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.payCard {
+  border: 2px solid var(--primary);
+}
+.payBalance {
+  font-family: var(--font-head);
+  font-size: 20px;
+}
+.payRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line-subtle);
+}
+.methods {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.method {
+  min-height: 44px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--card);
+  font-size: 13px;
+  cursor: pointer;
+}
+.method[aria-pressed='true'] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-on);
+  font-weight: 600;
+}
+.amountRow {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.kv {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--sunk);
+  font-size: 14px;
+}
+.over {
+  color: var(--danger-text);
+}
+.changeBox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-width: 400px) {
+  .methods {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

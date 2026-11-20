@@ -1,0 +1,84 @@
+# ขั้นที่ 1 (ทดลองที่ร้านต้นแบบ): ทุกอย่างบน VPS เครื่องเดียว แต่รูปแบบเดียวกับตอนแยกหลายเครื่อง
+#   Caddy (HTTPS + load balancer) → api × N   (ขยาย: docker compose up -d --scale api=3)
+#   ย้าย Postgres/Valkey ไปบริการแยก = เปลี่ยน DATABASE_APP_URL / VALKEY_URL ใน .env เท่านั้น ไม่ต้องแก้โค้ด
+# ยังไม่ได้ใช้งานจริง · ตั้งค่า .env บนเซิร์ฟเวอร์ตาม .env.example ก่อน
+name: rental
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      APP_HOST: ${APP_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [api]
+
+  # migration + สร้าง/อัปเดต role ของ API · ใช้บัญชี rental_owner (ไม่ใช่ superuser) เฉพาะ job นี้
+  migrate:
+    image: ${API_IMAGE:-rental-api:latest}
+    command: ["sh", "-c", "node /app/packages/db/scripts/migrate.ts && node /app/packages/db/scripts/dev-roles.ts"]
+    environment:
+      DATABASE_OWNER_URL: postgres://rental_owner:${RENTAL_OWNER_PASSWORD}@postgres:5432/rental
+      RENTAL_API_DB_PASSWORD: ${RENTAL_API_DB_PASSWORD}
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    image: ${API_IMAGE:-rental-api:latest}
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+    environment:
+      NODE_ENV: production
+      # บัญชี rental_api เท่านั้น (อยู่ใต้ RLS) · ห้ามใช้บัญชี owner/superuser ที่นี่ เพราะจะข้าม RLS ทุกร้าน
+      DATABASE_APP_URL: postgres://rental_api:${RENTAL_API_DB_PASSWORD}@postgres:5432/rental
+      VALKEY_URL: redis://:${VALKEY_PASSWORD}@valkey:6379
+      WEB_ORIGIN: https://${APP_HOST}
+      COOKIE_SECURE: "true"
+      # ไฟล์ลูกค้าต้องอยู่ที่เดียวกันทุกเครื่อง (Cloudflare R2)
+      S3_BUCKET: ${S3_BUCKET}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_REGION: ${S3_REGION:-auto}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      valkey: { condition: service_healthy }
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      # superuser ใช้ตั้งเครื่อง/สำรองข้อมูลเท่านั้น · ไม่ส่งให้ service อื่น
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
+      POSTGRES_DB: rental
+      RENTAL_OWNER_PASSWORD: ${RENTAL_OWNER_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rental"]
+      interval: 5s
+      retries: 20
+
+  valkey:
+    image: valkey/valkey:9.0-alpine
+    restart: unless-stopped
+    command: ["sh", "-c", "exec valkey-server --appendonly yes --requirepass \"$$VALKEY_PASSWORD\""]
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD}
+    volumes:
+      - valkeydata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a \"$$VALKEY_PASSWORD\" --no-auth-warning ping"]
+      interval: 5s
+      retries: 20
+
+volumes:
+  caddy_data:
+  pgdata:
+  valkeydata:

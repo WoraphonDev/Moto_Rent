@@ -1,0 +1,126 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1200px;
+}
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.head h1 {
+  font-size: 26px;
+}
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+.grid > section {
+  flex: 3 1 520px;
+}
+.aside {
+  flex: 2 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.person {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+.actions {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@media (min-width: 761px) {
+  /* คอมจอแคบ: ปุ่มจัดการขึ้นบรรทัดใหม่ในช่องเดิม แทนการดันตารางล้น */
+  .actions {
+    max-width: 240px;
+  }
+}
+.closed td {
+  color: var(--muted);
+}
+.approve {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(255 255 255 / 0.15);
+}
+.approveRow {
+  display: flex;
+  gap: 8px;
+}
+.codeInput {
+  width: 130px;
+  text-align: center;
+  letter-spacing: 4px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.invite {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.invite h2 {
+  font-size: 16px;
+}
+.twoCol {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.twoCol > * {
+  flex: 1 1 140px;
+}
+.roles {
+  display: flex;
+  gap: 8px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.roleOption {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: 14px;
+}
+.roleOption[data-on='true'] {
+  border: 2px solid var(--primary);
+  background: var(--primary-soft);
+  font-weight: 600;
+}
+.roleOption input {
+  accent-color: var(--primary);
+  margin: 0;
+}
+.url {
+  display: block;
+  padding: 10px;
+  border-radius: var(--radius-control);
+  background: var(--sunk);
+  font-size: 12px;
+  word-break: break-all;
+}

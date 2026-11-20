@@ -1,0 +1,155 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1200px;
+}
+.cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+.colMain {
+  flex: 3 1 460px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.colSide {
+  flex: 2 1 340px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 0;
+  font-size: 14px;
+}
+.facts dt {
+  color: var(--muted);
+}
+.facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.itemList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lines {
+  list-style: none;
+  margin: 0;
+  padding: 0 16px;
+}
+.lines li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line-subtle);
+  font-size: 14px;
+}
+.lines li:first-child {
+  border-top: 0;
+}
+.lines b {
+  white-space: nowrap;
+}
+.neg {
+  color: var(--ok-text);
+}
+.total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}
+.total b {
+  font-family: var(--font-head);
+  font-size: 22px;
+}
+.kv {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--sunk);
+  font-size: 14px;
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.returnCard {
+  scroll-margin-top: 66px;
+}
+.nowBtn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--primary);
+  font-weight: 600;
+}
+.nowBtn:hover {
+  color: var(--primary-hover);
+}
+
+/* มือถือ: งานหลัก (รับคืน → ต่อวัน) ขึ้นก่อนรายละเอียดสัญญา · ปุ่มยกเลิก (อันตราย) อยู่ท้ายหน้าเสมอ */
+@media (max-width: 760px) {
+  .colSide {
+    order: -1;
+    flex-direction: column-reverse;
+  }
+}
+
+.nextActions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.signRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line-subtle);
+}
+.returnPhotos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.subhead {
+  font-size: 13px;
+  font-weight: 600;
+}
+@media (max-width: 600px) {
+  .nextActions,
+  .nextActions > * {
+    flex: 1;
+  }
+  .nextActions > * {
+    min-height: 44px;
+  }
+  .signRow > a {
+    width: 100%;
+    min-height: 48px;
+  }
+}

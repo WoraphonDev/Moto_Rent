@@ -1,0 +1,155 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 1400px;
+}
+.legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.swatch {
+  width: 16px;
+  height: 12px;
+  border-radius: 4px;
+  display: inline-block;
+}
+.cols {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+/* ตารางกว้างกว่าจอมือถือ: เลื่อนซ้ายขวาได้เฉพาะในการ์ดนี้ · คอลัมน์รถติดอยู่ด้านซ้าย */
+.scroller {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.grid {
+  min-width: 840px;
+  display: flex;
+  flex-direction: column;
+}
+.row,
+.grid > .dayHead {
+  display: flex;
+}
+.grid > .rowHead.corner {
+  display: none;
+}
+.dayHead {
+  margin-left: 96px;
+  display: grid !important;
+  grid-template-columns: repeat(var(--days), minmax(0, 1fr));
+  border-bottom: 1px solid var(--line);
+}
+.dayHead span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.dayHead small {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.weekend {
+  background: var(--sunk);
+}
+.row {
+  border-bottom: 1px solid var(--line-subtle);
+  min-height: 44px;
+}
+.rowHead {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 96px;
+  flex: none;
+  background: var(--card);
+  border-right: 1px solid var(--line);
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-size: 13px;
+}
+.rowHead small {
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.track {
+  position: relative;
+  flex: 1;
+  background-image: linear-gradient(to right, var(--line-subtle) 1px, transparent 1px);
+  background-size: calc(100% / var(--days)) 100%;
+}
+.seg {
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  border-radius: 6px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 30px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+}
+.segRental {
+  background: var(--info-soft);
+  color: var(--info-text);
+  box-shadow: inset 0 0 0 1px var(--info-line);
+}
+.segReturned {
+  background: var(--sunk);
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.segBooking {
+  background: var(--warn-soft);
+  color: var(--warn-text);
+  box-shadow: inset 0 0 0 1px var(--warn-line);
+}
+.segMaintenance {
+  background: repeating-linear-gradient(45deg, var(--sunk), var(--sunk) 6px, var(--card) 6px, var(--card) 12px);
+  color: var(--ink-soft);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.segOverdue {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  box-shadow: inset 0 0 0 1px var(--danger-line);
+}
+.now {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  z-index: 1;
+}
+.request {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  background: var(--warn-soft);
+  color: var(--ink);
+  font-size: 13px;
+}

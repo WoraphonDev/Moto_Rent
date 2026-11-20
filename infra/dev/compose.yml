@@ -1,0 +1,32 @@
+# ฐานข้อมูลและคิวงานสำหรับพัฒนาในเครื่องเท่านั้น
+name: rental-dev
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: rental_owner
+      POSTGRES_PASSWORD: rental_owner_dev
+      POSTGRES_DB: rental
+    ports:
+      - "127.0.0.1:54330:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rental_owner -d rental"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  valkey:
+    image: valkey/valkey:9.0-alpine
+    ports:
+      - "127.0.0.1:63800:6379"
+    volumes:
+      - valkeydata:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  pgdata:
+  valkeydata:

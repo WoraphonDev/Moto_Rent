@@ -1,0 +1,174 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1200px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  font-size: 14px;
+  cursor: pointer;
+}
+.chip[aria-pressed='true'] {
+  border: 2px solid var(--accent);
+  font-weight: 600;
+}
+.chip[data-tone='overdue'] {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+.chip[data-tone='soon'] {
+  background: var(--warn-soft);
+  color: var(--warn-text);
+}
+.chip[data-tone='ok'] {
+  background: var(--ok-soft);
+  color: var(--ok-text);
+}
+.chipN {
+  font-weight: 700;
+}
+.cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+.dueList {
+  flex: 3 1 480px;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.side {
+  flex: 2 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.dueCard {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dueCard[data-urgency='overdue'] {
+  border-color: var(--danger-line);
+}
+.dueCard[data-urgency='soon'] {
+  border-color: var(--warn-line);
+}
+.dueHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.code {
+  width: 52px;
+  height: 44px;
+  flex: none;
+  border-radius: var(--radius-control);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  background: var(--ok-soft);
+  color: var(--ok-text);
+  box-shadow: inset 0 0 0 1px var(--ok-line);
+}
+.code[data-urgency='overdue'] {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  box-shadow: inset 0 0 0 1px var(--danger-line);
+}
+.code[data-urgency='soon'] {
+  background: var(--warn-soft);
+  color: var(--warn-text);
+  box-shadow: inset 0 0 0 1px var(--warn-line);
+}
+.dueItems {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.dueActions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.editGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  align-items: end;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-subtle);
+}
+.form {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-margin-top: 70px;
+}
+.form h2 {
+  font-size: 16px;
+}
+.twoCol {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.twoCol > * {
+  flex: 1 1 130px;
+}
+.costList {
+  list-style: none;
+  margin: 0;
+  padding: 6px 16px 12px;
+}
+.costList li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line-subtle);
+}
+.costList li:first-child {
+  border-top: 0;
+}
+.inlineField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.inlineField select {
+  min-height: 36px;
+  width: auto;
+}
+@media (max-width: 600px) {
+  .dueActions > * {
+    flex: 1 1 auto;
+    min-height: 44px;
+  }
+}

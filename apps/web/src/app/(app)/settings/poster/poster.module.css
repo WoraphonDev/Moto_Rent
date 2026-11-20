@@ -1,0 +1,86 @@
+.page {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+}
+.controls {
+  flex: 1 1 320px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+/* โปสเตอร์ A5 (148 × 210 มม.) · หน้าลูกค้า = MIX: Anuphan ทั้งแผ่น พื้นครีม */
+.poster {
+  flex: 0 1 420px;
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 148 / 210;
+  box-sizing: border-box;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 28px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: 'Anuphan', system-ui, sans-serif;
+  color: var(--ink);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+}
+.title {
+  font-size: 26px;
+  line-height: 1.2;
+}
+.sub {
+  color: var(--muted);
+  font-size: 14px;
+}
+.qr {
+  align-self: center;
+  width: 58%;
+  aspect-ratio: 1;
+  background: #fff;
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.qr svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.prices {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.prices li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--card);
+  font-size: 15px;
+}
+.prices small {
+  font-weight: 400;
+  color: var(--muted);
+}
+.foot {
+  margin-top: auto;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+

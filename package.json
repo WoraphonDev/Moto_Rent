@@ -1,0 +1,19 @@
+{
+  "name": "rental-platform",
+  "private": true,
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "db:up": "docker compose -f infra/dev/compose.yml up -d --wait",
+    "db:down": "docker compose -f infra/dev/compose.yml down",
+    "db:roles": "pnpm --filter @rental/db roles",
+    "db:generate": "pnpm --filter @rental/db generate",
+    "db:migrate": "pnpm --filter @rental/db migrate",
+    "db:setup": "pnpm db:up && pnpm db:migrate && pnpm db:roles",
+    "api:dev": "pnpm --filter @rental/api dev",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r --workspace-concurrency=1 test"
+  }
+}

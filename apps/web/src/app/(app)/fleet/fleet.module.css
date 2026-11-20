@@ -1,0 +1,155 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1200px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  font-size: 14px;
+  cursor: pointer;
+}
+.chip[aria-pressed='true'] {
+  border: 2px solid var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 600;
+}
+.chipN {
+  font-size: 12px;
+  color: var(--muted);
+}
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* คอมพิวเตอร์: แถวแบบตาราง */
+.item {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1.3fr) minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line-subtle);
+}
+.list li:first-child {
+  border-top: 0;
+}
+.code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  border-radius: var(--radius-control);
+  font-weight: 700;
+  font-size: 13px;
+  background: var(--ok-soft);
+  color: var(--ok-text);
+}
+.code[data-state='rented'] {
+  background: var(--info-soft);
+  color: var(--info-text);
+}
+.code[data-state='overdue'] {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+.code[data-state='maintenance'] {
+  background: var(--sunk);
+  color: var(--ink-soft);
+}
+.info,
+.renter a {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.info .muted,
+.renter .muted {
+  font-size: 12px;
+}
+.renter a {
+  color: var(--ink);
+}
+.renter a:hover b {
+  text-decoration: underline;
+}
+.state {
+  justify-self: start;
+}
+.act {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.stockGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.stock {
+  min-width: 0;
+}
+.stockTitle {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+.form {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+/* มือถือ: การ์ดซ้อน */
+@media (max-width: 760px) {
+  .item {
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+    grid-template-areas:
+      'code info state'
+      'code renter renter'
+      'act act act';
+    row-gap: 6px;
+    padding: 12px 14px;
+  }
+  .code {
+    grid-area: code;
+    align-self: start;
+  }
+  .info {
+    grid-area: info;
+  }
+  .renter {
+    grid-area: renter;
+  }
+  .state {
+    grid-area: state;
+    align-self: start;
+  }
+  .act {
+    grid-area: act;
+  }
+  .act :global(.btn) {
+    width: 100%;
+    min-height: 44px;
+  }
+}
