@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnApplicationShutdown } from '@nestjs/common';
-import type { Db } from '@rental/db';
+import { withTenant, type Db } from '@rental/db';
+import type { AuthCtx } from '../auth/context.js';
 import { sql } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
 import { STORAGE, type Storage } from '../common/storage.js';
@@ -47,11 +48,26 @@ export class PurgeService implements OnApplicationBootstrap, OnApplicationShutdo
     }
   }
 
-  /** ลบรายการที่เลยกำหนดแล้ว · คืนจำนวนที่ลบ */
+  /** ลบรายการที่เลยกำหนดแล้วของทุกร้าน (งานเบื้องหลัง) · คืนจำนวนที่ลบ */
   async runOnce(): Promise<number> {
     const due = await this.db.execute<{ media_id: string; org_id: string; storage_key: string }>(sql`select * from app.media_due_for_purge(200)`);
+    return this.purgeRows(due.rows);
+  }
+
+  /** เจ้าของร้านกด "ลบทันที" · เฉพาะของร้านตัวเอง (อ่านผ่าน RLS ของร้านนั้น) */
+  async runForOrg(a: Pick<AuthCtx, 'userId' | 'orgId'>): Promise<number> {
+    const due = await withTenant(this.db, a, (tx) =>
+      tx.execute<{ media_id: string; org_id: string; storage_key: string }>(sql`
+        select id as media_id, org_id, storage_key from media
+        where deleted_at is null and delete_after is not null and delete_after <= now()
+        order by delete_after limit 200`),
+    );
+    return this.purgeRows(due.rows);
+  }
+
+  private async purgeRows(rows: Array<{ media_id: string; org_id: string; storage_key: string }>): Promise<number> {
     let n = 0;
-    for (const row of due.rows) {
+    for (const row of rows) {
       try {
         await this.storage.remove(row.storage_key);
         // trigger กันอ้างข้ามร้านของตาราง media ใช้ app.org_id · ตั้งเป็นร้านของรายการนั้นในธุรกรรมเดียวกัน

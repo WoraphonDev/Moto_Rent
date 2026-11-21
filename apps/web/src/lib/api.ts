@@ -89,6 +89,10 @@ export interface AssetVariant {
 export interface AssetType {
   id: string;
   name: string;
+  /** ชื่อที่ลูกค้าเห็น (หน้าจอง หน้าเซ็นสัญญา) · null = ใช้ name */
+  publicName: string | null;
+  /** รูปหน้าปกของประเภท */
+  coverMediaId?: string | null;
   tracking: 'unit' | 'quantity';
   codePrefix: string | null;
   pricePerDay: number;
@@ -117,6 +121,12 @@ export interface Asset {
   customerName: string | null;
   hotelRoom: string | null;
   state: AssetState;
+  /** รูปหน้าปก (ของคันนี้ ถ้าไม่มีใช้ของประเภท) */
+  coverMediaId?: string | null;
+  ownCover?: boolean;
+  /** รหัสใน QR ที่ติดรถ */
+  qrToken?: string;
+  notes?: string | null;
 }
 
 export interface CustomerSummary {
@@ -155,6 +165,10 @@ export interface RentalItem {
   code: string | null;
   variantId: string | null;
   label: string;
+  /** ชื่อที่ลูกค้าเห็น (ภาษาอังกฤษ ถ้าร้านตั้งไว้) */
+  publicLabel?: string;
+  /** รูปหน้าปกของคัน/ประเภท */
+  coverMediaId?: string | null;
   quantity: number;
   pricePerDay: number;
   releasedAt: string | null;
@@ -248,6 +262,7 @@ export type LoginResponse =
   | { status: 'ok'; orgId: string; userId: string; role: Role }
   | { status: 'choose_org'; orgs: Array<{ orgId: string; name: string; role: Role }> }
   | { status: 'device_pending'; deviceId: string; approvalCode: string; expiresInSeconds: number }
+  | { status: 'totp_required'; expiresInSeconds: number }
   | { status: 'expired' };
 
 export interface Me {

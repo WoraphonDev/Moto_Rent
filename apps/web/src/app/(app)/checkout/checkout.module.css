@@ -2,7 +2,6 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 1200px;
 }
 .layout {
   display: flex;
@@ -215,5 +214,85 @@
   .mobileTotal {
     font-family: var(--font-head);
     font-size: 20px;
+  }
+}
+
+/* ขั้นตอน (mock 8.W6) + การ์ดรูป (mock 9.W1) */
+.stepHead {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.stepNo {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--sunk);
+  color: var(--muted);
+  flex: none;
+}
+.stepNo[data-done] {
+  background: var(--primary);
+  color: var(--primary-on);
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.gearCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.gearCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  min-width: 0;
+}
+.gearImg {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: 10px;
+}
+.gearHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 4px;
+}
+.daysPay {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.thumb {
+  width: 40px;
+  flex: none;
+}
+.lines li {
+  align-items: center !important;
+  gap: 8px;
+}
+@media (max-width: 760px) {
+  .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .daysPay {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

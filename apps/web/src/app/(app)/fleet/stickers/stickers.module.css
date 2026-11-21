@@ -1,0 +1,88 @@
+.sheetWrap {
+  background: var(--sunk);
+  overflow-x: auto;
+}
+.sheet {
+  display: grid;
+  gap: 4mm;
+  width: 190mm;
+  max-width: 100%;
+  padding: 6mm;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 6px;
+}
+.sheet[data-size='m'] {
+  grid-template-columns: repeat(3, 60mm);
+}
+.sheet[data-size='s'] {
+  grid-template-columns: repeat(4, 44mm);
+}
+.sticker {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  padding: 2.5mm;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 3mm;
+  background: #fff;
+  color: #2a211b;
+  break-inside: avoid;
+}
+.sheet[data-size='m'] .sticker {
+  height: 30mm;
+}
+.sheet[data-size='s'] .sticker {
+  height: 22mm;
+  gap: 2mm;
+}
+.qr {
+  display: block;
+  flex: none;
+  height: 100%;
+  aspect-ratio: 1;
+}
+.qr svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+.shop,
+.hint {
+  font-size: 7pt;
+  color: #5a4d42;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.code {
+  font-family: var(--font-head);
+  font-size: 22pt;
+  font-weight: 700;
+}
+.sheet[data-size='s'] .code {
+  font-size: 15pt;
+}
+.pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 4px 8px;
+  max-height: 200px;
+  overflow: auto;
+  padding: 8px;
+  border-radius: var(--radius-control);
+  background: var(--sunk);
+}
+.pickItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  min-height: 32px;
+}

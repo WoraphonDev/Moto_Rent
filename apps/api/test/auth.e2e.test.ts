@@ -4,6 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import { Redis } from 'ioredis';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { enableTotp } from './helpers.js';
 
 process.env.DATABASE_APP_URL ??= 'postgres://rental_api:rental_api_dev@localhost:54330/rental';
 process.env.VALKEY_URL ??= 'redis://localhost:63800';
@@ -69,6 +70,13 @@ describe('สมัครร้าน → เชิญพนักงาน → 
     expect(me.status).toBe(200);
     expect(me.body.org.name).toBe('Koh Tao Rental');
     expect(me.body.settings).toMatchObject({ maxRentalDays: 15, docRetentionDays: 90 });
+  });
+
+  it('เจ้าของยังไม่เปิด 2 ชั้น: สร้างลิงก์เชิญไม่ได้ · เปิดแล้วทำได้', async () => {
+    const before = await ownerPc.post('/v1/invitations').set(json).send({ username: `early.${s}`, displayName: 'x', role: 'staff' });
+    expect(before.status).toBe(403);
+    expect(before.body.error).toBe('totp_setup_required');
+    await enableTotp(ownerPc);
   });
 
   it('ชื่อร้านใน URL ซ้ำไม่ได้', async () => {

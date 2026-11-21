@@ -1,6 +1,8 @@
 import { HttpStatus, Module, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 import { AuthController } from './auth/auth.controller.js';
+import { TotpController } from './auth/totp.controller.js';
+import { TotpService } from './auth/totp.service.js';
 import { AuthService } from './auth/auth.service.js';
 import { SessionGuard } from './auth/session.guard.js';
 import { RateLimiter } from './common/rate-limit.js';
@@ -43,8 +45,8 @@ function jsonOnly(req: Request, res: Response, next: NextFunction) {
 
 @Module({
   imports: [InfraModule, StorageModule, Phase1ExtrasModule, Phase2Module, Phase3Module],
-  controllers: [HealthController, AuthController, MembersController, AssetsController, CustomersController, RentalsController, BillsController, TodayController],
-  providers: [AuthService, RateLimiter, SessionGuard],
+  controllers: [HealthController, AuthController, TotpController, MembersController, AssetsController, CustomersController, RentalsController, BillsController, TodayController],
+  providers: [AuthService, TotpService, RateLimiter, SessionGuard],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

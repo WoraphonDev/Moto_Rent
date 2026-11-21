@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { Skeleton } from '@/components/motion';
 import { Empty, Notice, PageHeader, useLoad } from '@/components/ui';
 import { api } from '@/lib/api';
 import type { BookingCalendar, CalendarSegment } from '@/lib/api-p3';
@@ -68,7 +69,14 @@ export default function BookingCalendarPage() {
       </div>
 
       <div className={styles.cols}>
-        <section className="card" style={{ minWidth: 0, flex: '3 1 640px' }}>
+        <section className="card" style={{ minWidth: 0 }}>
+          {!c && !cal.error && (
+            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} h={32} />
+              ))}
+            </div>
+          )}
           {c && c.assets.length === 0 && <Empty>ยังไม่มีรถรายคัน</Empty>}
           {c && c.assets.length > 0 && (
             <div className={styles.scroller}>
@@ -116,7 +124,7 @@ export default function BookingCalendarPage() {
           )}
         </section>
 
-        <aside className="card" style={{ flex: '1 1 260px', minWidth: 0 }} aria-label="คำขอรอยืนยัน">
+        <aside className={`card ${styles.side}`} aria-label="คำขอรอยืนยัน">
           <div className="card-head">
             <h2>รอยืนยัน</h2>
             <span className="badge badge-warn">{c?.requests.length ?? 0}</span>
@@ -124,7 +132,7 @@ export default function BookingCalendarPage() {
           <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {c && c.requests.length === 0 && <span className="muted">ไม่มีคำขอใหม่</span>}
             {c?.requests.map((r) => (
-              <Link key={r.id} href="/bookings" className={styles.request}>
+              <Link key={r.id} href="/bookings" className={`${styles.request} motion-lift`}>
                 <b>
                   {r.code} · {r.fullName}
                 </b>

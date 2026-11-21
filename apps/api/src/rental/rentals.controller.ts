@@ -381,7 +381,7 @@ export class RentalsController {
   }
 
   private async itemsFor(tx: Tx, rentalIds: string[]) {
-    const map = new Map<string, Array<{ id: string; assetId: string | null; code: string | null; variantId: string | null; label: string; quantity: number; pricePerDay: number; releasedAt: Date | null }>>();
+    const map = new Map<string, Array<{ id: string; assetId: string | null; code: string | null; variantId: string | null; label: string; publicLabel: string; quantity: number; pricePerDay: number; releasedAt: Date | null; coverMediaId: string | null }>>();
     if (!rentalIds.length) return map;
     const rows = await tx
       .select({
@@ -392,9 +392,12 @@ export class RentalsController {
         variantId: rentalItems.variantId,
         variantLabel: assetVariants.label,
         typeName: assetTypes.name,
+        publicName: assetTypes.publicName,
         quantity: rentalItems.quantity,
         pricePerDay: rentalItems.pricePerDay,
         releasedAt: rentalItems.releasedAt,
+        // รูปหน้าปกที่ใช้จริง: ของคันเอง ไม่มีใช้ของประเภท (หน้าเซ็นสัญญาแสดงรูปรถ)
+        coverMediaId: sql<string | null>`coalesce(${assets.coverMediaId}, ${assetTypes.coverMediaId})`,
       })
       .from(rentalItems)
       .innerJoin(assetTypes, eq(assetTypes.id, rentalItems.assetTypeId))
@@ -409,9 +412,12 @@ export class RentalsController {
         code: r.code,
         variantId: r.variantId,
         label: r.code ? `${r.typeName} ${r.code}` : `${r.typeName} ${r.variantLabel} × ${r.quantity}`,
+        // ชื่อที่ลูกค้าเห็น (หน้าเซ็นสัญญาภาษาอังกฤษ)
+        publicLabel: r.code ? `${r.publicName ?? r.typeName} ${r.code}` : `${r.publicName ?? r.typeName} ${r.variantLabel} × ${r.quantity}`,
         quantity: r.quantity,
         pricePerDay: r.pricePerDay,
         releasedAt: r.releasedAt,
+        coverMediaId: r.coverMediaId,
       });
       map.set(r.rentalId, list);
     }

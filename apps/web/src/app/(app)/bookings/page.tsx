@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Empty, Notice, PageHeader, useLoad } from '@/components/ui';
+import { Segmented, Skeleton } from '@/components/motion';
+import { useMe } from '@/components/shell';
+import { Notice, PageHeader, useLoad } from '@/components/ui';
 import { api } from '@/lib/api';
 import { BOOKING_STATUS_BADGE, BOOKING_STATUS_TH, type RenderedMessage, type StaffBooking } from '@/lib/api-p3';
 import { baht, dateTimeText } from '@/lib/format';
@@ -10,18 +12,30 @@ import { messageFor } from '@/lib/messages';
 import styles from './bookings.module.css';
 
 type Tab = 'requested' | 'confirmed' | 'all';
-const TABS: Array<{ key: Tab; label: string }> = [
-  { key: 'requested', label: 'รอยืนยัน' },
-  { key: 'confirmed', label: 'ยืนยันแล้ว' },
-  { key: 'all', label: 'ทั้งหมด' },
+const TABS: Array<{ value: Tab; label: string }> = [
+  { value: 'requested', label: 'รอยืนยัน' },
+  { value: 'confirmed', label: 'ยืนยันแล้ว' },
+  { value: 'all', label: 'ทั้งหมด' },
 ];
+const DAY_MS = 86_400_000;
+const WEEKDAY = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 const REJECT_PRESETS = ['รถเต็มช่วงนั้น', 'ไม่มีใบขับขี่', 'ข้อมูลติดต่อไม่ครบ', 'ร้านปิดวันนั้น'];
 
-/** คำขอจอง (mock 3.05 / 3.W2) · ยืนยัน + กำหนดคัน · ปฏิเสธ · ไม่มารับ · ส่ง WhatsApp */
+/** คำขอจอง (mock 3.05 / 3.W2 · จัดหน้า 8.W8) · ยืนยัน + กำหนดคัน · ปฏิเสธ · ไม่มารับ · ส่ง WhatsApp */
 export default function BookingsPage() {
+  const { me } = useMe();
   const [tab, setTab] = useState<Tab>('requested');
   const [notice, setNotice] = useState<{ kind: 'ok' | 'danger'; text: string } | null>(null);
   const list = useLoad(() => api.get<StaffBooking[]>(`/v1/bookings${tab === 'all' ? '' : `?status=${tab}`}`).then((r) => r.data), [tab]);
+  // แผงข้าง: ใช้รายการทั้งหมด (endpoint เดียวกัน) นับวันที่มีจองและสรุปสัปดาห์
+  const all = useLoad(() => api.get<StaffBooking[]>('/v1/bookings').then((r) => r.data), []);
+  const bookingUrl = typeof window === 'undefined' ? '' : `${window.location.origin}/book/${me.org.slug}`;
+
+  function reloadAll() {
+    void list.reload();
+    void all.reload();
+  }
 
   return (
     <div className={styles.page}>
@@ -34,34 +48,147 @@ export default function BookingsPage() {
           </Link>
         }
       />
-      <div className={styles.tabs} role="tablist" aria-label="สถานะคำขอ">
-        {TABS.map((t) => (
-          <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className={styles.tab} onClick={() => setTab(t.key)}>
-            {t.label}
-          </button>
-        ))}
-      </div>
       <Notice notice={notice} />
       {list.error && <Notice notice={{ kind: 'danger', text: list.error }} />}
-      {list.data && list.data.length === 0 && (
-        <div className="card">
-          <Empty>{tab === 'requested' ? 'ไม่มีคำขอรอยืนยัน' : 'ยังไม่มีรายการ'}</Empty>
+
+      <div className="split">
+        <div className="split-main">
+          <Segmented<Tab> label="สถานะคำขอ" value={tab} onChange={setTab} options={TABS} />
+          {!list.data && !list.error && <Skeleton h={220} />}
+          {list.data && list.data.length === 0 && (
+            <section className={`card ${styles.empty}`}>
+              <span className={styles.emptyIcon} aria-hidden="true">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <rect x="3" y="5" width="18" height="16" rx="2" />
+                  <path d="M3 10h18M8 3v4M16 3v4" />
+                </svg>
+              </span>
+              <h2>{tab === 'requested' ? 'ยังไม่มีคำขอที่รอยืนยัน' : tab === 'confirmed' ? 'ยังไม่มีการจองที่ยืนยันแล้ว' : 'ยังไม่มีการจอง'}</h2>
+              <p className="muted">คำขอใหม่จากหน้าจองจะขึ้นที่นี่ · แชร์ลิงก์หรือติดโปสเตอร์ QR ให้ลูกค้าจองได้เอง</p>
+              <div className={styles.emptyActions}>
+                <CopyLink url={bookingUrl} />
+                <Link className="btn" href="/settings/poster">
+                  พิมพ์โปสเตอร์ QR
+                </Link>
+              </div>
+            </section>
+          )}
+          <div className={`${styles.list} motion-list`} key={tab}>
+            {(list.data ?? []).map((b) => (
+              <BookingCard
+                key={b.id}
+                booking={b}
+                onChanged={(text) => {
+                  setNotice({ kind: 'ok', text });
+                  reloadAll();
+                }}
+                onError={(text) => setNotice({ kind: 'danger', text })}
+              />
+            ))}
+          </div>
         </div>
-      )}
-      <div className={styles.list}>
-        {(list.data ?? []).map((b) => (
-          <BookingCard
-            key={b.id}
-            booking={b}
-            onChanged={(text) => {
-              setNotice({ kind: 'ok', text });
-              void list.reload();
-            }}
-            onError={(text) => setNotice({ kind: 'danger', text })}
-          />
-        ))}
+        <aside className="split-side">
+          <UpcomingCard bookings={all.data} />
+          <WeekCard bookings={all.data} />
+        </aside>
       </div>
     </div>
+  );
+}
+
+function CopyLink({ url }: { url: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      className="btn"
+      onClick={() => {
+        void navigator.clipboard?.writeText(url).then(() => {
+          setDone(true);
+          setTimeout(() => setDone(false), 2000);
+        });
+      }}
+    >
+      {done ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์หน้าจอง'}
+    </button>
+  );
+}
+
+const ACTIVE: StaffBooking['status'][] = ['requested', 'confirmed'];
+
+/** 14 วันข้างหน้า: วันที่มีลูกค้ามารับรถ (รอยืนยัน/ยืนยันแล้ว) */
+function UpcomingCard({ bookings }: { bookings: StaffBooking[] | null }) {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const days = Array.from({ length: 14 }, (_, i) => new Date(start.getTime() + i * DAY_MS));
+  const count = new Map<string, number>();
+  for (const b of bookings ?? []) {
+    if (!ACTIVE.includes(b.status)) continue;
+    const k = dayKey(new Date(b.pickupAt));
+    count.set(k, (count.get(k) ?? 0) + 1);
+  }
+  const withBookings = days.filter((d) => count.has(dayKey(d))).length;
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h2>14 วันข้างหน้า</h2>
+        <span className="muted" style={{ fontSize: 12 }}>
+          {bookings ? `มีคนมารับรถ ${withBookings} วัน` : ''}
+        </span>
+      </div>
+      <div className="card-body">
+        {!bookings ? (
+          <Skeleton h={96} />
+        ) : (
+          <div className={styles.mini} role="list" aria-label="วันที่มีการจอง">
+            {days.map((d, i) => {
+              const n = count.get(dayKey(d)) ?? 0;
+              return (
+                <span key={i} role="listitem" className={styles.miniDay} data-on={n > 0} data-today={i === 0} aria-label={`${d.getDate()} ${n ? `มีจอง ${n}` : 'ไม่มีจอง'}`}>
+                  <small>{WEEKDAY[d.getDay()]}</small>
+                  <b>{d.getDate()}</b>
+                  {n > 0 && <i>{n}</i>}
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** สัปดาห์นี้ (7 วันล่าสุดที่ลูกค้าส่งคำขอ) */
+function WeekCard({ bookings }: { bookings: StaffBooking[] | null }) {
+  const since = Date.now() - 7 * DAY_MS;
+  const recent = (bookings ?? []).filter((b) => new Date(b.createdAt).getTime() >= since);
+  const rows: Array<[string, number]> = [
+    ['คำขอใหม่', recent.length],
+    ['รอยืนยัน', recent.filter((b) => b.status === 'requested').length],
+    ['ยืนยันแล้ว / รับรถแล้ว', recent.filter((b) => b.status === 'confirmed' || b.status === 'picked_up').length],
+    ['ปฏิเสธ', recent.filter((b) => b.status === 'rejected').length],
+    ['ลูกค้ายกเลิก / ไม่มารับ', recent.filter((b) => b.status === 'cancelled' || b.status === 'no_show').length],
+  ];
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h2>7 วันที่ผ่านมา</h2>
+      </div>
+      <div className="card-body">
+        {!bookings ? (
+          <Skeleton h={120} />
+        ) : (
+          <dl className={styles.week}>
+            {rows.map(([k, v]) => (
+              <div key={k}>
+                <dt className="muted">{k}</dt>
+                <dd>{v}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </div>
+    </section>
   );
 }
 

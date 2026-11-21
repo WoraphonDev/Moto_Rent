@@ -22,6 +22,8 @@ export const assetTypes = pgTable(
     id: id(),
     orgId: orgId(),
     name: text().notNull(),
+    /** ชื่อที่ลูกค้าเห็น (หน้าจอง หน้าเซ็นสัญญา Marketplace) · null = ใช้ name */
+    publicName: text(),
     tracking: text().notNull(),
     codePrefix: text(),
     pricePerDay: money().notNull(),
@@ -29,6 +31,8 @@ export const assetTypes = pgTable(
     listedOnMarketplace: boolean().notNull().default(false),
     /** เปลี่ยนน้ำมันเครื่องทุกกี่ กม. · null = ไม่ติดตาม */
     serviceIntervalKm: integer(),
+    /** รูปหน้าปกของประเภท (ใช้กับทุกคันที่ไม่มีรูปของตัวเอง + หน้าจอง) · FK → media เพิ่มใน migration 0013 (media อยู่ใน ops.ts) */
+    coverMediaId: uuid(),
     sortOrder: integer().notNull().default(0),
     archivedAt: timestamp({ withTimezone: true }),
     createdAt: createdAt(),
@@ -36,6 +40,7 @@ export const assetTypes = pgTable(
   (t) => [
     index('asset_types_org_idx').on(t.orgId),
     check('asset_types_tracking_check', sql`${t.tracking} in ('unit', 'quantity')`),
+    check('asset_types_public_name_check', sql`${t.publicName} is null or char_length(${t.publicName}) between 1 and 60`),
     check('asset_types_price_check', sql`${t.pricePerDay} >= 0 and coalesce(${t.deposit}, 0) >= 0`),
   ],
 );
@@ -63,9 +68,16 @@ export const assets = pgTable(
     insuranceExpiresOn: date({ mode: 'string' }),
     taxExpiresOn: date({ mode: 'string' }),
     nextServiceOdometer: integer(),
+    /** รูปหน้าปกเฉพาะคัน (ทับรูปของประเภท) · FK → media เพิ่มใน migration 0013 */
+    coverMediaId: uuid(),
+    /** token ในสติกเกอร์ QR บนตัวรถ · สุ่ม ไม่ซ้ำทั้งระบบ (token บอกได้เองว่าเป็นของร้านไหน) · หมุนใหม่ได้ */
+    qrToken: text()
+      .notNull()
+      .default(sql`replace(gen_random_uuid()::text, '-', '')`),
     createdAt: createdAt(),
   },
   (t) => [
+    uniqueIndex('assets_qr_token_key').on(t.qrToken),
     uniqueIndex('assets_org_code_key').on(t.orgId, sql`upper(${t.code})`),
     index('assets_type_idx').on(t.assetTypeId),
     check('assets_status_check', sql`${t.status} in ('available', 'maintenance', 'retired')`),

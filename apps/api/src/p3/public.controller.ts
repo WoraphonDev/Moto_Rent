@@ -1,14 +1,17 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Post, Query, Req, Res } from '@nestjs/common';
 import type { Db } from '@rental/db';
 import { sql } from 'drizzle-orm';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import type { Redis } from 'ioredis';
 import { z } from 'zod';
 import { CONFIG, type Config } from '../config.js';
 import { AppError, parse, pgError } from '../common/http.js';
 import { clientKey, RateLimiter } from '../common/rate-limit.js';
+import { STORAGE, type Storage } from '../common/storage.js';
 import { DB, VALKEY } from '../infra.js';
 import { newToken, tokenHash } from '../auth/crypto.js';
+
+type CoverRow = { media_id: string; storage_key: string; content_type: string };
 
 /** ใช้เวลากรอกฟอร์มน้อยกว่านี้ = น่าจะเป็น bot */
 const MIN_FORM_MS = 3000;
@@ -28,6 +31,11 @@ export function normalizePhone(raw: string): { phone: string; digits: string } |
   if (digits.length < 8 || digits.length > 15) return null;
   return { phone: `${raw.trim().startsWith('+') ? '+' : ''}${digits}`, digits };
 }
+
+/** token ในสติกเกอร์ QR (ฐานข้อมูลสร้าง: uuid ตัด - ออก) */
+const QR_TOKEN = /^[0-9a-f]{32}$/;
+/** รูปหน้าปกแคชได้ (รูปเปลี่ยน = URL เปลี่ยนตาม ?v=) */
+const COVER_CACHE = 'public, max-age=3600';
 
 const slugParam = z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9-]{1,40}$/);
 const bookingBody = z.object({
@@ -64,6 +72,7 @@ export class PublicBookingController {
     @Inject(DB) private readonly db: Db,
     @Inject(CONFIG) private readonly config: Config,
     @Inject(VALKEY) private readonly valkey: Redis,
+    @Inject(STORAGE) private readonly storage: Storage,
     private readonly limiter: RateLimiter,
   ) {}
 
@@ -74,8 +83,58 @@ export class PublicBookingController {
     const r = await this.db.execute<{ j: Record<string, unknown> | null }>(sql`select pub.shop(${slug}) as j`);
     const shop = r.rows[0]?.j;
     if (!shop) throw new AppError(HttpStatus.NOT_FOUND, 'shop_not_found');
-    const { orgId: _hidden, ...rest } = shop as { orgId?: string };
-    return rest;
+    const { orgId: _hidden, types, ...rest } = shop as { orgId?: string; types?: Array<{ id: string; coverMediaId?: string | null } & Record<string, unknown>> };
+    return {
+      ...rest,
+      // ไม่ส่ง id ของไฟล์ · ส่ง URL ของรูปแทน (ใส่ ?v= ให้รูปใหม่ไม่ติดแคชของรูปเดิม)
+      types: (types ?? []).map(({ coverMediaId, ...t }) => ({ ...t, coverUrl: coverMediaId ? `/v1/public/shops/${slug}/types/${t.id}/cover?v=${coverMediaId.slice(-12)}` : null })),
+    };
+  }
+
+  /** รูปหน้าปกของประเภท (หน้าจอง) · เฉพาะรูปชนิด cover ของร้านที่เปิดหน้าจอง */
+  @Get('shops/:slug/types/:typeId/cover')
+  async typeCover(@Param('slug') slugRaw: string, @Param('typeId') typeId: string, @Req() req: Request, @Res() res: Response) {
+    await this.limiter.hit('pub-read', clientKey(req), 300, 600);
+    const slug = this.slug(slugRaw);
+    if (!z.string().uuid().safeParse(typeId).success) throw new AppError(HttpStatus.NOT_FOUND, 'not_found');
+    const r = await this.db.execute<CoverRow>(sql`select * from pub.type_cover(${slug}, ${typeId}::uuid)`);
+    await this.sendCover(r.rows[0], res);
+  }
+
+  /** สแกน QR บนตัวรถ (ลูกค้า/คนทั่วไป) · คืนเฉพาะข้อมูลร้าน + รหัสคัน + ชื่อประเภท */
+  @Get('q/:token')
+  async qr(@Param('token') token: string, @Req() req: Request) {
+    await this.limiter.hit('pub-qr', clientKey(req), 60, 600);
+    if (!QR_TOKEN.test(token)) throw new AppError(HttpStatus.NOT_FOUND, 'not_found');
+    const r = await this.db.execute<{ j: (Record<string, unknown> & { coverMediaId?: string | null }) | null }>(sql`select pub.qr_lookup(${token}) as j`);
+    const j = r.rows[0]?.j;
+    if (!j) throw new AppError(HttpStatus.NOT_FOUND, 'not_found');
+    const { coverMediaId, ...rest } = j;
+    return { ...rest, coverUrl: coverMediaId ? `/v1/public/q/${token}/cover?v=${coverMediaId.slice(-12)}` : null };
+  }
+
+  /** รูปหน้าปกของคันที่สแกน (ของคันเอง ไม่มีใช้ของประเภท) */
+  @Get('q/:token/cover')
+  async qrCover(@Param('token') token: string, @Req() req: Request, @Res() res: Response) {
+    await this.limiter.hit('pub-read', clientKey(req), 300, 600);
+    if (!QR_TOKEN.test(token)) throw new AppError(HttpStatus.NOT_FOUND, 'not_found');
+    const r = await this.db.execute<CoverRow>(sql`select * from pub.qr_cover(${token})`);
+    await this.sendCover(r.rows[0], res);
+  }
+
+  private async sendCover(row: CoverRow | undefined, res: Response) {
+    if (!row) throw new AppError(HttpStatus.NOT_FOUND, 'not_found');
+    const file = await this.storage.get(row.storage_key).catch(() => null);
+    if (!file) throw new AppError(HttpStatus.NOT_FOUND, 'not_found');
+    res.setHeader('Content-Type', row.content_type);
+    res.setHeader('Cache-Control', COVER_CACHE);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Disposition', 'inline');
+    // หน้าจอง/หน้า QR อยู่คนละ origin กับ API ได้
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    if (file.size) res.setHeader('Content-Length', String(file.size));
+    file.body.on('error', () => res.destroy());
+    file.body.pipe(res);
   }
 
   @Get('shops/:slug/availability')

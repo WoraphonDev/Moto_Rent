@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { initials, useMe } from '@/components/shell';
+import { TwoFactorCard, useTotpPrompt } from '@/components/totp';
+import { PageHeader } from '@/components/ui';
 import { api, type Device, type Member, type PendingInvitation } from '@/lib/api';
 import { dateTimeOf, messageFor, ROLE_LABEL } from '@/lib/messages';
 import styles from './staff.module.css';
@@ -22,6 +24,8 @@ export default function StaffPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [link, setLink] = useState<Link | null>(null);
   const [notice, setNotice] = useState<{ kind: 'ok' | 'danger'; text: string } | null>(null);
+  // งานสำคัญถามรหัส 6 หลัก (ถ้ายังไม่ได้ยืนยันใน 15 นาที)
+  const { guard, dialog } = useTotpPrompt();
 
   const load = useCallback(async () => {
     try {
@@ -61,19 +65,20 @@ export default function StaffPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.head}>
-        <div>
-          <p className="muted">ตั้งค่า · {isOwner ? 'เจ้าของเท่านั้นที่แก้ได้' : 'ดูได้อย่างเดียว'}</p>
-          <h1>พนักงานและเครื่อง</h1>
-        </div>
-        <span className="badge badge-neutral">ใช้งาน {active} · ไม่จำกัดจำนวน</span>
-      </div>
+      <PageHeader
+        kicker={`ตั้งค่า · ${isOwner ? 'เจ้าของเท่านั้นที่แก้ได้' : 'ดูได้อย่างเดียว'}`}
+        title="พนักงานและเครื่อง"
+        actions={<span className="badge badge-neutral">ใช้งาน {active} · ไม่จำกัดจำนวน</span>}
+      />
 
       {notice && (
         <div className={`alert alert-${notice.kind}`} role={notice.kind === 'danger' ? 'alert' : 'status'}>
           {notice.text}
         </div>
       )}
+
+      {isOwner && <TwoFactorCard guard={guard} />}
+      {dialog}
 
       {pending.length > 0 && (
         <section className="now" aria-label="เครื่องรออนุมัติ">
@@ -83,13 +88,14 @@ export default function StaffPage() {
               key={d.id}
               device={d}
               canApprove={isOwner}
-              onApprove={(code) => run(() => api.post(`/v1/devices/${d.id}/approve`, { code }), `อนุมัติ ${d.name} แล้ว`)}
+              onApprove={(code) => run(() => guard(() => api.post(`/v1/devices/${d.id}/approve`, { code })), `อนุมัติ ${d.name} แล้ว`)}
             />
           ))}
         </section>
       )}
 
-      <div className={styles.grid}>
+      <div className="split">
+        <div className="split-main">
         <section className="card" style={{ minWidth: 0 }}>
           <div className="card-head">
             <h2>บัญชีพนักงาน</h2>
@@ -134,7 +140,7 @@ export default function StaffPage() {
                               className="btn btn-sm"
                               onClick={() =>
                                 run(async () => {
-                                  const { data } = await api.post<{ url: string; expiresAt: string }>(`/v1/members/${m.userId}/reset-link`);
+                                  const { data } = await guard(() => api.post<{ url: string; expiresAt: string }>(`/v1/members/${m.userId}/reset-link`));
                                   setLink({ title: `ลิงก์ตั้งรหัสใหม่ของ ${m.displayName}`, url: data.url, expiresAt: data.expiresAt });
                                 }, 'สร้างลิงก์ตั้งรหัสใหม่แล้ว')
                               }
@@ -186,10 +192,55 @@ export default function StaffPage() {
           </p>
         </section>
 
-        <aside className={styles.aside}>
+        <section className="card">
+          <div className="card-head">
+            <h2>เครื่องที่อนุญาต</h2>
+            <span className="muted" style={{ fontSize: 13 }}>เข้าระบบได้เฉพาะเครื่องในรายการนี้</span>
+          </div>
+          <div className="scroll-x">
+            <table className="table table-stack">
+              <thead>
+                <tr>
+                  <th scope="col">เครื่อง</th>
+                  <th scope="col">ขอโดย</th>
+                  <th scope="col">อนุมัติเมื่อ</th>
+                  <th scope="col">สถานะ</th>
+                  {isOwner && <th scope="col"><span className="sr-only">จัดการ</span></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {others.map((d) => (
+                  <tr key={d.id} className={d.status === 'revoked' ? styles.closed : undefined}>
+                    <td>
+                      <b>{d.name}</b>
+                      {d.id === me.deviceId && <span className="badge badge-info" style={{ marginLeft: 8 }}>เครื่องนี้</span>}
+                    </td>
+                    <td data-label="ขอโดย">{d.requestedBy}</td>
+                    <td data-label="อนุมัติเมื่อ">{d.approvedAt ? dateTimeOf(d.approvedAt) : '—'}</td>
+                    <td data-label="สถานะ">{d.status === 'approved' ? <span className="badge badge-ok">อนุญาต</span> : <span className="badge badge-danger">ตัดสิทธิ์แล้ว</span>}</td>
+                    {isOwner && (
+                      <td>
+                        {d.status === 'approved' && d.id !== me.deviceId && (
+                          <ConfirmButton
+                            label="ตัดสิทธิ์"
+                            danger
+                            onConfirm={() => run(() => api.post(`/v1/devices/${d.id}/revoke`), `ตัดสิทธิ์ ${d.name} แล้ว · เครื่องนั้นออกจากระบบทันที`)}
+                          />
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        </div>
+
+        <aside className="split-side">
           {link && <LinkCard link={link} onClose={() => setLink(null)} />}
           {isOwner && (
-            <InviteForm
+            <InviteForm guard={guard}
               onCreated={(l) => {
                 setLink(l);
                 void load();
@@ -198,50 +249,6 @@ export default function StaffPage() {
           )}
         </aside>
       </div>
-
-      <section className="card">
-        <div className="card-head">
-          <h2>เครื่องที่อนุญาต</h2>
-          <span className="muted" style={{ fontSize: 13 }}>เข้าระบบได้เฉพาะเครื่องในรายการนี้</span>
-        </div>
-        <div className="scroll-x">
-          <table className="table table-stack">
-            <thead>
-              <tr>
-                <th scope="col">เครื่อง</th>
-                <th scope="col">ขอโดย</th>
-                <th scope="col">อนุมัติเมื่อ</th>
-                <th scope="col">สถานะ</th>
-                {isOwner && <th scope="col"><span className="sr-only">จัดการ</span></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {others.map((d) => (
-                <tr key={d.id} className={d.status === 'revoked' ? styles.closed : undefined}>
-                  <td>
-                    <b>{d.name}</b>
-                    {d.id === me.deviceId && <span className="badge badge-info" style={{ marginLeft: 8 }}>เครื่องนี้</span>}
-                  </td>
-                  <td data-label="ขอโดย">{d.requestedBy}</td>
-                  <td data-label="อนุมัติเมื่อ">{d.approvedAt ? dateTimeOf(d.approvedAt) : '—'}</td>
-                  <td data-label="สถานะ">{d.status === 'approved' ? <span className="badge badge-ok">อนุญาต</span> : <span className="badge badge-danger">ตัดสิทธิ์แล้ว</span>}</td>
-                  {isOwner && (
-                    <td>
-                      {d.status === 'approved' && d.id !== me.deviceId && (
-                        <ConfirmButton
-                          label="ตัดสิทธิ์"
-                          danger
-                          onConfirm={() => run(() => api.post(`/v1/devices/${d.id}/revoke`), `ตัดสิทธิ์ ${d.name} แล้ว · เครื่องนั้นออกจากระบบทันที`)}
-                        />
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
     </div>
   );
 }
@@ -283,7 +290,7 @@ function ApproveDevice({ device, canApprove, onApprove }: { device: Device; canA
   );
 }
 
-function InviteForm({ onCreated }: { onCreated: (l: Link) => void }) {
+function InviteForm({ onCreated, guard }: { onCreated: (l: Link) => void; guard: <T>(fn: () => Promise<T>) => Promise<T> }) {
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [phone, setPhone] = useState('');
@@ -297,12 +304,14 @@ function InviteForm({ onCreated }: { onCreated: (l: Link) => void }) {
     setError(null);
     try {
       const cleanPhone = phone.replace(/[\s-]/g, '');
-      const { data } = await api.post<{ url: string; expiresAt: string }>('/v1/invitations', {
-        displayName: displayName.trim(),
-        username: username.trim(),
-        role,
-        ...(cleanPhone ? { phone: cleanPhone } : {}),
-      });
+      const { data } = await guard(() =>
+        api.post<{ url: string; expiresAt: string }>('/v1/invitations', {
+          displayName: displayName.trim(),
+          username: username.trim(),
+          role,
+          ...(cleanPhone ? { phone: cleanPhone } : {}),
+        }),
+      );
       onCreated({ title: `ลิงก์เชิญ ${displayName.trim()}`, url: data.url, expiresAt: data.expiresAt, phone: cleanPhone || undefined });
       setDisplayName('');
       setUsername('');

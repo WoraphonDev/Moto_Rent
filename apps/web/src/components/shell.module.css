@@ -110,6 +110,7 @@
 }
 .navLink[aria-current='page'] {
   background: var(--sunk);
+  /* พื้นของหน้าที่เลือกเป็นแถบเลื่อน (.side::before) เมื่อวัดตำแหน่งได้แล้ว */
   color: var(--ink);
   font-weight: 600;
 }
@@ -235,4 +236,63 @@
     overflow: hidden;
     clip: rect(0 0 0 0);
   }
+}
+
+.outBox {
+  width: min(420px, 100%);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.outBox h2 {
+  font-size: 18px;
+}
+.outActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* พื้นเมนูที่เลือกเลื่อนตามหน้า (mock 8.W2 ข้อ 3) */
+.side {
+  position: relative;
+  isolation: isolate;
+}
+/* แถบล่าง (มือถือ) เป็น position: fixed อยู่แล้ว · ห้ามทับด้วย relative */
+.bottom {
+  isolation: isolate;
+}
+.navLink,
+.bottomLink {
+  transition: color var(--m-dur-s), background-color var(--m-dur-s);
+}
+.side[data-indicator]::before,
+.bottom[data-indicator]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  width: var(--ind-w, 0);
+  height: var(--ind-h, 0);
+  translate: var(--ind-x, 0) var(--ind-y, 0);
+  border-radius: var(--radius-control);
+  background: var(--sunk);
+  pointer-events: none;
+}
+.bottom[data-indicator]::before {
+  border-radius: 10px;
+  background: var(--topbar-field);
+}
+.side[data-indicator='on']::before,
+.bottom[data-indicator='on']::before {
+  transition: translate var(--m-dur) var(--m-ease), height var(--m-dur) var(--m-ease), width var(--m-dur) var(--m-ease);
+}
+.side[data-indicator] .navLink[aria-current='page'] {
+  background: transparent;
+}
+.side[data-indicator] .navLink:hover:not([aria-current='page']) {
+  background: var(--hover);
 }

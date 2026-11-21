@@ -211,6 +211,10 @@ describe('ลบเอกสารที่ครบกำหนด (PDPA)', () 
     );
     await db.$client.end();
     expect((await staff.post('/v1/media/purge-now').set(nobody)).status).toBe(403);
+    // เจ้าของร้านอื่นกดลบทันที ต้องไม่แตะเอกสารของร้านนี้
+    const other = await signupShop(app, suffix());
+    expect((await other.post('/v1/media/purge-now').set(nobody)).body.purged).toBe(0);
+    expect((await staff.get(`/v1/media/${docId}/content`)).status).toBe(200);
     const p = await owner.post('/v1/media/purge-now').set(nobody);
     expect(p.status).toBe(200);
     expect(p.body.purged).toBeGreaterThanOrEqual(1);

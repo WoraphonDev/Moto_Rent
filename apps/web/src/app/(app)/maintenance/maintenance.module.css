@@ -2,75 +2,47 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 1200px;
 }
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.toolbar {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line-subtle);
 }
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 40px;
-  padding: 0 12px;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--line-strong);
-  background: var(--card);
-  font-size: 14px;
-  cursor: pointer;
-}
-.chip[aria-pressed='true'] {
-  border: 2px solid var(--accent);
-  font-weight: 600;
-}
-.chip[data-tone='overdue'] {
-  background: var(--danger-soft);
-  color: var(--danger-text);
-}
-.chip[data-tone='soon'] {
-  background: var(--warn-soft);
-  color: var(--warn-text);
-}
-.chip[data-tone='ok'] {
-  background: var(--ok-soft);
-  color: var(--ok-text);
-}
-.chipN {
-  font-weight: 700;
-}
-.cols {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: flex-start;
-}
-.dueList {
-  flex: 3 1 480px;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px;
-}
-.side {
-  flex: 2 1 300px;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.dueCard {
-  padding: 14px;
+.skel {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 16px;
+}
+.dueList {
+  display: flex;
+  flex-direction: column;
+}
+.dueCard {
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 14px;
+  align-items: center;
+  border-top: 1px solid var(--line-subtle);
+}
+.dueList > .dueCard:first-child {
+  border-top: 0;
+}
+.dueCard > .dueItems,
+.dueCard > p {
+  grid-column: 1;
+  padding-left: 62px;
+}
+.dueCard > .dueActions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  justify-content: flex-end;
+}
+.dueCard > .editGrid {
+  grid-column: 1 / -1;
 }
 .dueCard[data-urgency='overdue'] {
-  border-color: var(--danger-line);
-}
-.dueCard[data-urgency='soon'] {
-  border-color: var(--warn-line);
+  background: color-mix(in srgb, var(--danger-soft) 45%, transparent);
 }
 .dueHead {
   display: flex;
@@ -165,6 +137,20 @@
 .inlineField select {
   min-height: 36px;
   width: auto;
+}
+@media (max-width: 760px) {
+  .dueCard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dueCard > .dueItems,
+  .dueCard > p {
+    padding-left: 0;
+  }
+  .dueCard > .dueActions {
+    grid-column: 1;
+    grid-row: auto;
+    justify-content: flex-start;
+  }
 }
 @media (max-width: 600px) {
   .dueActions > * {

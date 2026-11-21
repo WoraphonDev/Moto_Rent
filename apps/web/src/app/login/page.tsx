@@ -4,14 +4,15 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError, type LoginResponse } from '@/lib/api';
 import { messageFor, ROLE_LABEL } from '@/lib/messages';
-import { readLocal, REMEMBERED_USERNAME, writeLocal } from '@/lib/storage';
+import { readLocal, REMEMBERED_USERNAME, resetIdleLock, writeLocal } from '@/lib/storage';
 import { safeNext } from '@/lib/safe-next';
 import styles from './login.module.css';
 
 type Step =
   | { kind: 'form' }
   | { kind: 'choose_org'; orgs: Extract<LoginResponse, { status: 'choose_org' }>['orgs'] }
-  | { kind: 'pending'; approvalCode: string; expiresAt: number };
+  | { kind: 'pending'; approvalCode: string; expiresAt: number }
+  | { kind: 'totp' };
 
 const POLL_MS = 3000;
 
@@ -39,6 +40,8 @@ export default function LoginPage() {
 
   function done() {
     writeLocal(REMEMBERED_USERNAME, remember ? identifier.trim() : null);
+    // ล็อกจอที่จำไว้จาก session ก่อน ไม่เกี่ยวกับการเข้าระบบครั้งนี้ (เดิมเข้าแล้วล็อกทันทีและหลุดอีกรอบ)
+    resetIdleLock();
     router.replace(safeNext(new URLSearchParams(window.location.search).get('next')));
   }
 
@@ -48,6 +51,7 @@ export default function LoginPage() {
     if (r.status === 'device_pending') {
       return setStep({ kind: 'pending', approvalCode: r.approvalCode, expiresAt: Date.now() + r.expiresInSeconds * 1000 });
     }
+    if (r.status === 'totp_required') return setStep({ kind: 'totp' });
     setStep({ kind: 'form' });
     setError('คำขอหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง');
   }
@@ -110,6 +114,16 @@ export default function LoginPage() {
         <div className={styles.box}>
           {step.kind === 'pending' ? (
             <PendingDevice code={step.approvalCode} secondsLeft={Math.max(0, Math.round((step.expiresAt - now) / 1000))} onCancel={() => setStep({ kind: 'form' })} />
+          ) : step.kind === 'totp' ? (
+            <TotpStep
+              username={identifier.trim()}
+              onDone={handle}
+              onBack={(msg) => {
+                setStep({ kind: 'form' });
+                setPassword('');
+                setError(msg ?? null);
+              }}
+            />
           ) : (
             <>
               <div>
@@ -221,3 +235,87 @@ function PendingDevice({ code, secondsLeft, onCancel }: { code: string; secondsL
   );
 }
 
+/** เจ้าของร้านเข้าจากเครื่องใหม่: ใส่รหัส 6 หลักจากแอป หรือรหัสสำรอง (mock 7.01) */
+function TotpStep({ username, onDone, onBack }: { username: string; onDone: (r: LoginResponse) => void; onBack: (msg?: string) => void }) {
+  const [useBackup, setUseBackup] = useState(false);
+  const [value, setValue] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const body = useBackup ? { backupCode: value.trim() } : { code: value.replace(/\s/g, '') };
+      const { data } = await api.post<LoginResponse>('/v1/auth/login/totp', body);
+      onDone(data);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'totp_expired') return onBack(messageFor(err));
+      setError(messageFor(err));
+      setValue('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <div>
+        <h1 className={styles.title}>ยืนยันว่าเป็นคุณ</h1>
+        <p className="muted">เข้าระบบจากเครื่องใหม่ · {username}</p>
+      </div>
+      {error && (
+        <div className="alert alert-danger" role="alert">
+          {error}
+        </div>
+      )}
+      <form className={`card ${styles.form}`} onSubmit={submit}>
+        {useBackup ? (
+          <label className="field">
+            รหัสสำรอง (ใช้ได้รหัสละครั้ง)
+            <input className="input" autoCapitalize="characters" autoComplete="off" placeholder="XXXX-XXXX" maxLength={12} required value={value} onChange={(e) => setValue(e.target.value)} />
+          </label>
+        ) : (
+          <label className="field">
+            เปิดแอปยืนยันตัวตนในมือถือของคุณ แล้วใส่รหัส 6 หลัก
+            <input
+              className={`input ${styles.otp}`}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9 ]{6,7}"
+              maxLength={7}
+              required
+              autoFocus
+              value={value}
+              onChange={(e) => setValue(e.target.value.replace(/[^0-9 ]/g, ''))}
+            />
+          </label>
+        )}
+        <button className="btn btn-primary btn-block" disabled={busy}>
+          {busy ? 'กำลังตรวจสอบ…' : 'ยืนยัน'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-block"
+          onClick={() => {
+            setUseBackup((v) => !v);
+            setValue('');
+            setError(null);
+          }}
+        >
+          {useBackup ? 'ใช้รหัส 6 หลักจากแอปแทน' : 'มือถือไม่อยู่? ใช้รหัสสำรองแทน'}
+        </button>
+      </form>
+      <div className="alert alert-ok" role="note">
+        ยืนยันแล้วเครื่องนี้จะถูกจำไว้ ครั้งหน้าไม่ต้องใส่อีก
+      </div>
+      <p className="muted" style={{ fontSize: 13 }}>
+        ใส่ผิด 5 ครั้ง ระบบพักไว้ 15 นาที และบันทึกในประวัติการใช้งาน
+      </p>
+      <button type="button" className="btn btn-block" onClick={() => onBack()}>
+        กลับไปหน้าเข้าระบบ
+      </button>
+    </>
+  );
+}

@@ -1,21 +1,13 @@
 .page {
   display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  align-items: flex-start;
-}
-.controls {
-  flex: 1 1 320px;
-  min-width: 0;
-  display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 /* โปสเตอร์ A5 (148 × 210 มม.) · หน้าลูกค้า = MIX: Anuphan ทั้งแผ่น พื้นครีม */
 .poster {
-  flex: 0 1 420px;
   width: 100%;
   max-width: 420px;
+  margin: 0 auto;
   aspect-ratio: 148 / 210;
   box-sizing: border-box;
   background: var(--bg);

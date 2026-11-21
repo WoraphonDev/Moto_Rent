@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useMe } from '@/components/shell';
+import { CountUp, Segmented, Skeleton, useShowMore } from '@/components/motion';
 import { Empty, Notice, PageHeader, useLoad } from '@/components/ui';
 import { api } from '@/lib/api';
 import type { ReportSummary } from '@/lib/api-p2';
@@ -33,6 +34,7 @@ export default function ReportsPage() {
   const [preset, setPreset] = useState<Preset>('month');
   const [[from, to], setRange] = useState<[string, string]>(() => rangeFor('month'));
   const report = useLoad(() => (allowed ? api.get<ReportSummary>(`/v1/reports/summary?from=${from}&to=${to}`).then((r) => r.data) : Promise.resolve(null)), [from, to, allowed]);
+  const assetRows = useShowMore(report.data?.assets ?? [], 8);
 
   if (!allowed) {
     return (
@@ -57,29 +59,20 @@ export default function ReportsPage() {
       />
 
       <div className={styles.rangeBar}>
-        <div className={styles.chips} role="group" aria-label="ช่วงเวลา">
-          {(
-            [
-              ['today', 'วันนี้'],
-              ['7d', '7 วัน'],
-              ['month', 'เดือนนี้'],
-              ['custom', 'กำหนดเอง'],
-            ] as const
-          ).map(([k, l]) => (
-            <button
-              key={k}
-              type="button"
-              className={styles.chip}
-              aria-pressed={preset === k}
-              onClick={() => {
-                setPreset(k);
-                if (k !== 'custom') setRange(rangeFor(k));
-              }}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
+        <Segmented<Preset>
+          label="ช่วงเวลา"
+          value={preset}
+          onChange={(k) => {
+            setPreset(k);
+            if (k !== 'custom') setRange(rangeFor(k));
+          }}
+          options={[
+            { value: 'today', label: 'วันนี้' },
+            { value: '7d', label: '7 วัน' },
+            { value: 'month', label: 'เดือนนี้' },
+            { value: 'custom', label: 'กำหนดเอง' },
+          ]}
+        />
         {preset === 'custom' && (
           <div className={styles.custom}>
             <label className="field">
@@ -95,14 +88,24 @@ export default function ReportsPage() {
       </div>
 
       <Notice notice={report.error ? { kind: 'danger', text: report.error } : null} />
+      {!r && !report.error && (
+        <>
+          <div className="kpis">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} h={96} />
+            ))}
+          </div>
+          <Skeleton h={280} />
+        </>
+      )}
 
       {r && (
         <>
-          <section className={styles.kpis} aria-label="ตัวเลขสรุป">
-            <Kpi label="รายได้" value={baht(r.totals.revenue)} sub={`${r.totals.rentals} สัญญาเริ่มในช่วงนี้`} tone="ok" />
-            <Kpi label="เงินเข้าจริง" value={baht(r.totals.payments)} sub={r.paymentsByMethod.map((p) => `${METHOD_LABEL[p.method]} ${baht(p.amount)}`).join(' · ') || 'ยังไม่มี'} tone="info" />
-            <Kpi label="บิลค้างจ่ายตอนนี้" value={baht(r.totals.openBills)} sub={`${r.totals.openBillCount} บิล`} tone="warn" />
-            <Kpi label="อัตราใช้รถเฉลี่ย" value={`${r.totals.avgUtilizationPct}%`} sub={`ค่าซ่อม ${baht(r.totals.maintenanceCost)}`} tone="neutral" />
+          <section className="kpis" aria-label="ตัวเลขสรุป">
+            <Kpi label="รายได้" value={r.totals.revenue} format={baht} sub={`${r.totals.rentals} สัญญาเริ่มในช่วงนี้`} tone="ok" />
+            <Kpi label="เงินเข้าจริง" value={r.totals.payments} format={baht} sub={r.paymentsByMethod.map((p) => `${METHOD_LABEL[p.method]} ${baht(p.amount)}`).join(' · ') || 'ยังไม่มี'} tone="info" />
+            <Kpi label="บิลค้างจ่ายตอนนี้" value={r.totals.openBills} format={baht} sub={`${r.totals.openBillCount} บิล`} tone="warn" />
+            <Kpi label="อัตราใช้รถเฉลี่ย" value={r.totals.avgUtilizationPct} format={(n) => `${n}%`} sub={`ค่าซ่อม ${baht(r.totals.maintenanceCost)}`} tone="neutral" />
           </section>
 
           <section className="card">
@@ -117,7 +120,7 @@ export default function ReportsPage() {
             </div>
           </section>
 
-          <div className={styles.cols}>
+          <div className="grid-3">
             <section className="card">
               <div className="card-head">
                 <h2>รายได้ตามประเภทรายการ</h2>
@@ -203,7 +206,7 @@ export default function ReportsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {r.assets.map((x) => (
+                    {assetRows.visible.map((x) => (
                       <tr key={x.assetId}>
                         <td>
                           <b>{x.code}</b> <span className="muted">{x.typeName}</span>
@@ -217,7 +220,7 @@ export default function ReportsPage() {
                         <td data-label="อัตราใช้">
                           <span className={styles.util}>
                             <span className={styles.utilBar} aria-hidden="true">
-                              <span style={{ width: `${Math.min(100, x.utilizationPct)}%` }} />
+                              <span className="motion-bar" style={{ width: `${Math.min(100, x.utilizationPct)}%` }} />
                             </span>
                             {x.utilizationPct}% {x.utilizationPct < 20 && <span className="badge badge-warn">วิ่งน้อย</span>}
                           </span>
@@ -228,6 +231,7 @@ export default function ReportsPage() {
                 </table>
               </div>
             )}
+            {assetRows.more}
           </section>
           <p className="muted" style={{ fontSize: 12 }}>
             รายได้นับตามเวลาที่บันทึกรายการในบิล (ไม่นับบิลที่ยกเลิก) · เงินเข้านับตามเวลารับเงิน · สัญญาหลายชิ้นแบ่งรายได้ลงแต่ละชิ้นตามสัดส่วนราคาต่อวัน
@@ -238,11 +242,13 @@ export default function ReportsPage() {
   );
 }
 
-function Kpi({ label, value, sub, tone }: { label: string; value: string; sub: string; tone: 'ok' | 'info' | 'warn' | 'neutral' }) {
+function Kpi({ label, value, format, sub, tone }: { label: string; value: number; format: (n: number) => string; sub: string; tone: 'ok' | 'info' | 'warn' | 'neutral' }) {
   return (
     <div className={styles.kpi} data-tone={tone}>
       <span className={styles.kpiLabel}>{label}</span>
-      <span className={styles.kpiValue}>{value}</span>
+      <span className={styles.kpiValue}>
+        <CountUp value={value} format={format} />
+      </span>
       <span className={styles.kpiSub}>{sub}</span>
     </div>
   );
@@ -270,7 +276,16 @@ function DailyChart({ daily }: { daily: ReportSummary['daily'] }) {
           const top = y(d.revenue);
           return (
             <g key={d.date}>
-              <rect x={x + bw * 0.15} y={top} width={bw * 0.7} height={Math.max(0, y(0) - top)} rx={Math.min(4, bw * 0.2)} fill="var(--primary)">
+              <rect
+                className="motion-bar-v"
+                style={{ transformBox: 'fill-box', animationDelay: `${Math.min(i, 20) * 30}ms` }}
+                x={x + bw * 0.15}
+                y={top}
+                width={bw * 0.7}
+                height={Math.max(0, y(0) - top)}
+                rx={Math.min(4, bw * 0.2)}
+                fill="var(--primary)"
+              >
                 <title>{`${dateText(d.date)} · รายได้ ${baht(d.revenue)} · เงินเข้า ${baht(d.payments)}`}</title>
               </rect>
               {d.payments > 0 && <circle cx={x + bw / 2} cy={y(d.payments)} r={Math.min(4, bw * 0.25)} fill="var(--accent)" />}

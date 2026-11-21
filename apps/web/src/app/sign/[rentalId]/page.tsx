@@ -1,5 +1,6 @@
 'use client';
 
+import { AssetImage, visualKind } from '@/components/asset-visual';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { api, ApiError, type Me } from '@/lib/api';
@@ -142,9 +143,21 @@ export default function SignPage() {
 
           <section className={styles.card} aria-labelledby="summary-title">
             <h2 id="summary-title">Your rental</h2>
+            {rental.items.some((i) => i.coverMediaId) && (
+              <div className={styles.vehicles}>
+                {rental.items
+                  .filter((i) => i.coverMediaId)
+                  .map((i) => (
+                    <figure key={i.id} className={styles.vehicle}>
+                      <AssetImage mediaId={i.coverMediaId} kind={visualKind(i.publicLabel ?? i.label, i.assetId ? 'unit' : 'quantity')} alt={i.publicLabel ?? i.label} ratio={16 / 10} />
+                      <figcaption>{i.publicLabel ?? i.label}</figcaption>
+                    </figure>
+                  ))}
+              </div>
+            )}
             <dl className={styles.facts}>
               <dt>Vehicle / items</dt>
-              <dd>{rental.items.map((i) => i.label).join(', ')}</dd>
+              <dd>{rental.items.map((i) => i.publicLabel ?? i.label).join(', ')}</dd>
               <dt>Pick-up</dt>
               <dd>{when(rental.startAt)}</dd>
               <dt>Return by</dt>

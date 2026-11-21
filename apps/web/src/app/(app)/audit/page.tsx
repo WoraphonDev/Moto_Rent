@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useMe } from '@/components/shell';
+import { Skeleton } from '@/components/motion';
 import { Empty, Notice, PageHeader } from '@/components/ui';
 import { api } from '@/lib/api';
 import type { AuditItem, AuditPage } from '@/lib/api-p2';
@@ -130,6 +131,9 @@ function Diff({ item }: { item: AuditItem }) {
   );
 }
 
+// มือถือแถวกลายเป็นการ์ดสูง จึงแสดงทีละ 10 (หน้านี้ render ฝั่งเครื่องเท่านั้น หลัง Shell รู้ว่าใครเข้าระบบ)
+const STEP = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 760px)').matches ? 10 : 20;
+
 /** ประวัติการใช้งาน (mock 2.04 / 2.W5) · ลบหรือแก้ไม่ได้ (บังคับที่ฐานข้อมูล) */
 export default function AuditPage() {
   const { me } = useMe();
@@ -144,6 +148,8 @@ export default function AuditPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // แสดงทีละ 20 แถว (หน้าเดิมยาว 5,000px) · หมดที่โหลดไว้แล้วค่อยขอหน้าถัดไปจากเซิร์ฟเวอร์
+  const [shown, setShown] = useState(STEP);
 
   const query = useCallback(
     (c?: string | null) => {
@@ -166,6 +172,7 @@ export default function AuditPage() {
       try {
         const { data } = await api.get<AuditPage>(`/v1/audit?${query(more ? cursor : null)}`);
         setItems((prev) => (more ? [...prev, ...data.items] : data.items));
+        if (!more) setShown(STEP);
         setCursor(data.nextCursor);
         setActors(data.actors);
       } catch (e) {
@@ -243,9 +250,16 @@ export default function AuditPage() {
       <Notice notice={error ? { kind: 'danger', text: error } : null} />
 
       <section className="card">
+        {items.length === 0 && loading && (
+          <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} h={40} />
+            ))}
+          </div>
+        )}
         {items.length === 0 && !loading ? (
           <Empty>ไม่มีรายการตามตัวกรองนี้</Empty>
-        ) : (
+        ) : items.length === 0 ? null : (
           <div className="scroll-x">
             <table className="table table-stack">
               <thead>
@@ -258,7 +272,7 @@ export default function AuditPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((i) => (
+                {items.slice(0, shown).map((i) => (
                   <tr key={i.id} className={i.risk === 'risky' ? styles.risky : undefined}>
                     <td data-label="เวลา" className={styles.nowrap}>
                       {dateTimeText(i.createdAt)}
@@ -283,10 +297,18 @@ export default function AuditPage() {
             </table>
           </div>
         )}
-        {cursor && (
+        {(shown < items.length || cursor) && (
           <div className="card-body" style={{ display: 'flex', justifyContent: 'center' }}>
-            <button type="button" className="btn" disabled={loading} onClick={() => void load(true)}>
-              {loading ? 'กำลังโหลด…' : 'ดูรายการเก่ากว่า'}
+            <button
+              type="button"
+              className="btn btn-sm"
+              disabled={loading}
+              onClick={() => {
+                if (shown >= items.length && cursor) void load(true);
+                setShown((n) => n + STEP);
+              }}
+            >
+              {loading ? 'กำลังดึงรายการ…' : `แสดงอีก ${STEP} รายการ`}
             </button>
           </div>
         )}

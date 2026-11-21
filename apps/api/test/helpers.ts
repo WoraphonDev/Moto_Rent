@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Redis } from 'ioredis';
 import request from 'supertest';
+import { currentStep, totpCode } from '../src/auth/totp.js';
 
 process.env.DATABASE_APP_URL ??= 'postgres://rental_api:rental_api_dev@localhost:54330/rental';
 process.env.VALKEY_URL ??= 'redis://localhost:63800';
@@ -36,7 +37,28 @@ export async function signupShop(app: INestApplication, s: string): Promise<Agen
     password: 'Owner-island-2026',
   });
   if (r.status !== 201) throw new Error(`signup failed: ${r.status} ${JSON.stringify(r.body)}`);
+  // เจ้าของร้านต้องเปิดยืนยันตัวตน 2 ชั้นก่อนอนุมัติเครื่อง/เชิญพนักงาน (session นี้นับว่ายืนยันแล้ว 15 นาที)
+  await enableTotp(owner);
   return owner;
+}
+
+const secrets = new WeakMap<Agent, string>();
+
+/** เปิด 2 ชั้นให้ผู้ใช้ของเครื่องนี้ · คืน secret และรหัสสำรอง */
+export async function enableTotp(agent: Agent): Promise<{ secret: string; backupCodes: string[] }> {
+  const setup = await agent.post('/v1/auth/2fa/setup').set(nobody);
+  if (setup.status !== 200) throw new Error(`2fa setup failed: ${setup.status} ${JSON.stringify(setup.body)}`);
+  const secret = setup.body.secret as string;
+  const en = await agent.post('/v1/auth/2fa/enable').set(json).send({ code: totpCode(secret, currentStep()) });
+  if (en.status !== 200) throw new Error(`2fa enable failed: ${en.status} ${JSON.stringify(en.body)}`);
+  secrets.set(agent, secret);
+  return { secret, backupCodes: en.body.backupCodes };
+}
+
+export function totpSecretOf(agent: Agent): string {
+  const s = secrets.get(agent);
+  if (!s) throw new Error('2fa not enabled for this agent');
+  return s;
 }
 
 /** เชิญพนักงาน → ตั้งรหัส → เข้าระบบ → เจ้าของอนุมัติเครื่อง → คืนเครื่องของพนักงานที่เข้าระบบแล้ว */

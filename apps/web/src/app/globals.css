@@ -166,6 +166,11 @@ select {
   color: var(--danger-text);
   border-color: var(--danger-line);
 }
+.btn-ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--primary);
+}
 .btn-block {
   width: 100%;
   min-height: var(--tap);
@@ -392,5 +397,380 @@ select {
   .table-stack td:not([data-label]) {
     justify-content: flex-start;
     text-align: left;
+  }
+}
+
+/* =====================================================================
+ * กรอบหน้า + แม่แบบ (mock 8.W1) · ทุกหน้ากว้างเท่ากัน สูงสุด 1280 จัดกลาง
+ * A รายการ · B หลัก+แผงข้าง (.split) · C แดชบอร์ด (.kpis/.grid-2) · D ตั้งค่า (.grid-2)
+ * ===================================================================== */
+:root {
+  --page-max: 1280px;
+  /* การเคลื่อนไหว (mock 8.W2) · ปิดเองเมื่อเครื่องตั้ง "ลดการเคลื่อนไหว" */
+  --m-dur: 550ms;
+  --m-dur-s: 350ms;
+  --m-dur-long: 1500ms;
+  --m-stagger: 85ms;
+  --m-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --shadow-lift: 0 8px 20px rgb(42 33 27 / 0.14);
+  --shadow-dialog: 0 24px 60px rgb(42 33 27 / 0.3);
+}
+.page-frame {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+/* หลัก + แผงข้าง: แผงข้างติดจอขณะเลื่อน (คอม) · มือถือเรียงลง */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.split > .split-side {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.split > .split-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+/* การ์ดในแถวเดียวกันสูงเท่ากัน · ปุ่มท้ายการ์ด (.card-foot) ชิดล่างตรงกัน */
+.grid-2,
+.grid-3,
+.kpis {
+  display: grid;
+  gap: 16px;
+  align-items: stretch;
+}
+.grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.kpis {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+:is(.grid-2, .grid-3) > .card {
+  display: flex;
+  flex-direction: column;
+}
+:is(.grid-2, .grid-3) > .card > .card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.card-foot {
+  margin-top: auto;
+}
+.show-more {
+  align-self: center;
+  margin: 8px 0 12px;
+}
+@media (max-width: 1100px) {
+  .grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 960px) {
+  .split,
+  .grid-2,
+  .grid-3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .split > .split-side {
+    position: static;
+  }
+  .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------- ตัวกรอง (พื้นเลื่อนตาม) / แท็บ (เส้นใต้เลื่อนตาม) · ตำแหน่งจาก useSlidingIndicator ---------- */
+.seg {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--sunk);
+  max-width: 100%;
+}
+.seg > button {
+  position: relative;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--m-dur-s);
+}
+.seg > button[aria-pressed='true'] {
+  color: var(--ink);
+}
+.seg > button .badge {
+  margin-left: 6px;
+}
+.seg::before,
+.tabbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  translate: var(--ind-x, 0) var(--ind-y, 0);
+  width: var(--ind-w, 0);
+}
+.seg::before {
+  z-index: -1;
+  height: var(--ind-h, 0);
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: 0 1px 3px rgb(42 33 27 / 0.12);
+}
+.tabbar {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line-subtle);
+  padding: 0 8px;
+  scrollbar-width: none;
+}
+.tabbar > button {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--m-dur-s);
+}
+.tabbar > button[aria-selected='true'] {
+  color: var(--primary);
+}
+.tabbar::after {
+  top: auto;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+:is(.seg, .tabbar, [data-indicator])[data-indicator='on']::before,
+:is(.seg, .tabbar, [data-indicator])[data-indicator='on']::after {
+  transition: translate var(--m-dur) var(--m-ease), width var(--m-dur) var(--m-ease), height var(--m-dur) var(--m-ease);
+}
+
+/* ---------- การเคลื่อนไหว ---------- */
+@keyframes m-fade { from { opacity: 0; } }
+@keyframes m-fade-out { to { opacity: 0; } }
+@keyframes m-rise { from { opacity: 0; translate: 0 10px; } }
+@keyframes m-dialog-in { from { opacity: 0; translate: 0 10px; scale: 0.97; } }
+@keyframes m-dialog-out { to { opacity: 0; translate: 0 6px; scale: 0.98; } }
+@keyframes m-sheet-in { from { translate: 0 100%; } }
+@keyframes m-sheet-out { to { translate: 0 100%; } }
+@keyframes m-drawer-in { from { translate: 100% 0; } }
+@keyframes m-grow { from { transform: scaleX(0); } }
+@keyframes m-grow-v { from { transform: scaleY(0); } }
+@keyframes m-pop { 40% { scale: 1.18; } }
+@keyframes m-skel { to { background-position: -200% 0; } }
+
+/* 1 · เปลี่ยนหน้า (template ใส่ .page-enter ใหม่ทุกครั้งที่ path เปลี่ยน) · มือถือจางอย่างเดียว */
+.page-enter {
+  animation: m-fade var(--m-dur) var(--m-ease) backwards;
+}
+@media (min-width: 761px) {
+  .page-enter {
+    animation-name: m-rise;
+  }
+}
+/* 2 · แถว/การ์ดไล่กันตอนเปิดหน้าเท่านั้น ([data-entering] ถูกถอดหลังเปิดหน้า แถวที่เพิ่มทีหลังไม่ขยับซ้ำ) */
+[data-entering] :is(.motion-list > *, tbody tr, .kpis > *) {
+  animation: m-rise var(--m-dur) var(--m-ease) backwards;
+  animation-delay: calc(var(--mi, 0) * var(--m-stagger));
+}
+:is(.motion-list > *, tbody tr, .kpis > *):nth-child(2) { --mi: 1; }
+:is(.motion-list > *, tbody tr, .kpis > *):nth-child(3) { --mi: 2; }
+:is(.motion-list > *, tbody tr, .kpis > *):nth-child(4) { --mi: 3; }
+:is(.motion-list > *, tbody tr, .kpis > *):nth-child(5) { --mi: 4; }
+:is(.motion-list > *, tbody tr, .kpis > *):nth-child(6) { --mi: 5; }
+:is(.motion-list > *, tbody tr, .kpis > *):nth-child(7) { --mi: 6; }
+:is(.motion-list > *, tbody tr, .kpis > *):nth-child(n + 8) { --mi: 7; }
+/* เนื้อหาที่สลับ (แท็บ ตัวกรอง) จางเข้าเบาๆ */
+.motion-swap {
+  animation: m-rise var(--m-dur) var(--m-ease) backwards;
+}
+/* 5 · กดปุ่มยุบ · การ์ดที่กดได้ยกขึ้น · ป้ายเปลี่ยนสีนุ่ม · ติ๊กเด้ง */
+.btn {
+  transition: background-color var(--m-dur-s), border-color var(--m-dur-s), color var(--m-dur-s), scale 120ms ease;
+}
+.btn:active:not(:disabled) {
+  scale: 0.97;
+}
+.badge {
+  transition: background-color var(--m-dur), color var(--m-dur);
+}
+.motion-lift {
+  transition: translate var(--m-dur) var(--m-ease), box-shadow var(--m-dur) ease, border-color var(--m-dur-s);
+}
+@media (hover: hover) {
+  .motion-lift:hover {
+    translate: 0 -3px;
+    box-shadow: var(--shadow-lift);
+  }
+}
+input[type='checkbox']:checked:focus-visible,
+input[type='checkbox']:checked:active {
+  animation: m-pop 600ms var(--m-ease);
+}
+.alert {
+  animation: m-fade var(--m-dur-s) ease;
+}
+/* 6 · แถบโตจาก 0 */
+.motion-bar {
+  transform-origin: left center;
+  animation: m-grow var(--m-dur-long) var(--m-ease) backwards;
+}
+.motion-bar-v {
+  transform-origin: center bottom;
+  animation: m-grow-v var(--m-dur-long) var(--m-ease) backwards;
+}
+/* 8 · โครงหน้าระหว่างโหลด */
+.skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--sunk) 25%, #faf4ea 50%, var(--sunk) 75%);
+  background-size: 200% 100%;
+  animation: m-skel 1.6s ease-in-out infinite;
+}
+
+/* 4/7 · กล่อง popup: คอม = กลางจอ · มือถือ = แผ่นเลื่อนขึ้น */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgb(42 33 27 / 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: m-fade var(--m-dur-s) ease;
+}
+.overlay[data-closing] {
+  animation: m-fade-out 250ms ease both;
+}
+.dialog {
+  width: min(var(--dialog-w, 520px), 100%);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  background: var(--card);
+  border-radius: 14px;
+  box-shadow: var(--shadow-dialog);
+  display: flex;
+  flex-direction: column;
+  animation: m-dialog-in var(--m-dur) var(--m-ease);
+}
+.overlay[data-closing] .dialog {
+  animation: m-dialog-out 250ms var(--m-ease) both;
+}
+.dialog-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line-subtle);
+}
+.dialog-head h2 {
+  font-size: 18px;
+  flex: 1;
+  min-width: 0;
+}
+.dialog-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--line);
+  background: var(--card);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+}
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.sheet-grip {
+  display: none;
+}
+@media (max-width: 760px) {
+  .overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .dialog {
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: 18px 18px 0 0;
+    animation-name: m-sheet-in;
+  }
+  .overlay[data-closing] .dialog {
+    animation-name: m-sheet-out;
+  }
+  .sheet-grip {
+    display: block;
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line-strong);
+    margin: 8px auto 0;
+    flex: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+@media print {
+  .page-enter,
+  [data-entering] * {
+    animation: none !important;
   }
 }

@@ -49,16 +49,17 @@ export default function PosterPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.controls}>
-        <PageHeader
-          kicker="ตั้งค่า · พิมพ์ขนาด A5"
-          title="โปสเตอร์ QR หน้าจอง"
-          actions={
-            <button type="button" className="btn btn-primary" onClick={() => window.print()} disabled={!svg}>
-              พิมพ์โปสเตอร์
-            </button>
-          }
-        />
+      <PageHeader
+        kicker="ตั้งค่า · พิมพ์ขนาด A5"
+        title="โปสเตอร์ QR หน้าจอง"
+        actions={
+          <button type="button" className="btn btn-primary" onClick={() => window.print()} disabled={!svg}>
+            พิมพ์โปสเตอร์
+          </button>
+        }
+      />
+      <div className="split">
+      <div className="split-main">
         {bookingOff && (
           <div className="alert alert-warn" role="status">
             หน้าจองออนไลน์ยังปิดอยู่ · ลูกค้าสแกน QR แล้วจะเห็นว่า “ร้านไม่รับจองออนไลน์”{' '}
@@ -89,6 +90,7 @@ export default function PosterPage() {
       </div>
 
       <style>{PRINT_CSS}</style>
+      <aside className="split-side">
       <section className={styles.poster} aria-label="ตัวอย่างโปสเตอร์" lang="en" data-poster>
         <div className={styles.brand}>
           <span className="sun" aria-hidden="true" />
@@ -109,6 +111,8 @@ export default function PosterPage() {
         </ul>
         <p className={styles.foot}>Pay at the shop · Bring your passport and driving licence · Helmets included</p>
       </section>
+      </aside>
+      </div>
     </div>
   );
 }

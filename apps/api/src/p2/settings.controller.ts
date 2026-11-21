@@ -8,8 +8,28 @@ import { AppError, parse } from '../common/http.js';
 import { DB } from '../infra.js';
 import { Auth, Roles, type AuthCtx } from '../auth/context.js';
 import { SessionGuard } from '../auth/session.guard.js';
+import { normalizePhone } from '../p3/public.controller.js';
 
 const money = z.number().int().min(0).max(100_000_000);
+/** เบอร์ติดต่อร้าน: ตัวเลข 8–15 หลัก (มี + ช่องว่าง ขีด วงเล็บได้) → เก็บเป็นตัวเลขล้วน · ว่าง/null = ลบ */
+const contactPhone = z
+  .string()
+  .trim()
+  .max(25)
+  .nullable()
+  .transform((v, ctx) => {
+    if (!v) return null;
+    if (!/^\+?[0-9 ()-]+$/.test(v)) {
+      ctx.addIssue({ code: 'custom', message: 'phone_format' });
+      return z.NEVER;
+    }
+    const n = normalizePhone(v);
+    if (!n) {
+      ctx.addIssue({ code: 'custom', message: 'phone_format' });
+      return z.NEVER;
+    }
+    return n.phone;
+  });
 const settingsBody = z
   .object({
     lateGraceMinutes: z.number().int().min(0).max(1440),
@@ -21,6 +41,9 @@ const settingsBody = z
     idleLockMinutes: z.number().int().min(1).max(240),
     /** เปิดหน้าจองออนไลน์ของร้าน (ร้านใหม่ปิดไว้ก่อน) */
     publicBookingEnabled: z.boolean(),
+    /** ช่องทางติดต่อที่ลูกค้าเห็นบนหน้า QR */
+    contactWhatsapp: contactPhone,
+    contactPhone: contactPhone,
   })
   .partial();
 const orgBody = z.object({

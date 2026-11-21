@@ -10,7 +10,17 @@ import urllib.request
 import uuid
 
 API = os.environ.get("API", "http://127.0.0.1:4100")
-jar = http.cookiejar.CookieJar()
+# ใช้เครื่องเดียวกับที่ dev-seed.sh สมัครร้าน (อนุมัติแล้ว) · เจ้าของเข้าจากเครื่องใหม่ต้องใช้ยืนยันตัวตน 2 ชั้น
+COOKIES = os.path.join(os.path.dirname(__file__), "..", ".data", "dev-seed.cookies")
+jar = http.cookiejar.MozillaCookieJar()
+if os.path.exists(COOKIES):
+    # curl เขียน cookie แบบ httpOnly เป็น "#HttpOnly_..." ซึ่ง Python รุ่นเก่ามองเป็นคอมเมนต์ · ตัดคำนำหน้าออกก่อนอ่าน
+    import tempfile
+    with open(COOKIES) as f, tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as t:
+        t.write("# Netscape HTTP Cookie File\n")
+        t.writelines(line.replace("#HttpOnly_", "", 1) for line in f if line.startswith("#HttpOnly_") or not line.startswith("#"))
+    jar.load(t.name, ignore_discard=True, ignore_expires=True)
+    os.unlink(t.name)
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
 
 

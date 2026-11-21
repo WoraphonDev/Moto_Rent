@@ -14,6 +14,8 @@ import { passwordProblems, passwordSchema } from './password-policy.js';
 import { SessionGuard } from './session.guard.js';
 
 const PENDING_COOKIE = 'rp';
+/** ตั๋วรอใส่รหัส 6 หลัก (เจ้าของร้านเข้าจากเครื่องใหม่) */
+const TOTP_COOKIE = 'rt';
 const DEVICE_COOKIE_DAYS = 400;
 
 const loginBody = z.object({
@@ -22,6 +24,13 @@ const loginBody = z.object({
   orgId: z.string().uuid().optional(),
   deviceName: z.string().trim().max(60).optional(),
 });
+
+const totpBody = z
+  .object({
+    code: z.string().trim().max(10).optional(),
+    backupCode: z.string().trim().max(20).optional(),
+  })
+  .refine((v) => !!v.code !== !!v.backupCode, 'code_or_backup');
 
 const signupBody = z.object({
   shopName: z.string().trim().min(2).max(80),
@@ -83,6 +92,23 @@ export class AuthController {
     return this.respond(result, res);
   }
 
+  /** เจ้าของร้านเครื่องใหม่: ใส่รหัส 6 หลักจากแอป (หรือรหัสสำรอง) */
+  @Post('login/totp')
+  @HttpCode(200)
+  async loginTotp(@Body() body: unknown, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const input = parse(totpBody, body);
+    const token: unknown = req.cookies?.[TOTP_COOKIE];
+    if (typeof token !== 'string') throw new AppError(401, 'totp_expired');
+    await this.limiter.hit('login-totp', req.ip ?? 'unknown', 20, 900);
+    const result = await this.auth.loginTotp(token, input, req.ip ?? null);
+    if (result.status === 'expired') {
+      res.clearCookie(TOTP_COOKIE, this.cookieBase());
+      throw new AppError(401, 'totp_expired');
+    }
+    res.clearCookie(TOTP_COOKIE, this.cookieBase());
+    return this.respond(result, res);
+  }
+
   @Post('signup')
   @HttpCode(201)
   async signup(@Body() body: unknown, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
@@ -131,6 +157,11 @@ export class AuthController {
       res.cookie(PENDING_COOKIE, result.pendingToken, { ...this.cookieBase(), maxAge: result.expiresInSeconds * 1000 });
       res.status(202);
       return { status: 'device_pending', deviceId: result.deviceId, approvalCode: result.approvalCode, expiresInSeconds: result.expiresInSeconds };
+    }
+    if (result.status === 'totp_required') {
+      res.cookie(TOTP_COOKIE, result.pendingToken, { ...this.cookieBase(), maxAge: result.expiresInSeconds * 1000 });
+      res.status(202);
+      return { status: 'totp_required', expiresInSeconds: result.expiresInSeconds };
     }
     return result;
   }

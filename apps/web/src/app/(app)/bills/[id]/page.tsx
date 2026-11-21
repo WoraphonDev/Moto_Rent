@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMe } from '@/components/shell';
+import { CountUp, PageSkeleton } from '@/components/motion';
 import { ConfirmButton, Notice, PageHeader, useLoad } from '@/components/ui';
 import { api, ApiError, type Bill, type PaymentMethod } from '@/lib/api';
 import { baht, dateTimeText, LINE_LABEL, METHOD_LABEL, parseBaht, dateText } from '@/lib/format';
@@ -31,7 +32,7 @@ export default function BillPage() {
   const b = bill.data;
 
   if (bill.error) return <Notice notice={{ kind: 'danger', text: bill.error }} />;
-  if (!b) return <p className="muted">กำลังโหลด…</p>;
+  if (!b) return <PageSkeleton />;
 
   const open = b.status === 'open';
   const statusBadge = b.status === 'open' ? <span className="badge badge-warn">ค้างจ่าย</span> : b.status === 'paid' ? <span className="badge badge-ok">จ่ายแล้ว</span> : <span className="badge badge-neutral">ยกเลิกแล้ว</span>;
@@ -61,8 +62,8 @@ export default function BillPage() {
         </div>
       )}
 
-      <div className={styles.cols}>
-        <div className={styles.colMain}>
+      <div className="split">
+        <div className="split-main">
           <section className="card">
             <div className="card-head">
               <h2>รายการ</h2>
@@ -131,7 +132,18 @@ export default function BillPage() {
           )}
         </div>
 
-        <div className={styles.colSide}>
+        <aside className="split-side">
+          <section className="card" aria-label="ยอดบิล">
+            <div className={`card-body ${styles.sum}`}>
+              <span className="muted">{b.status === 'paid' ? 'ยอดรวม' : 'คงค้าง'}</span>
+              <b className={styles.sumBig}>
+                <CountUp value={b.status === 'paid' ? b.total : b.balance} format={(n) => baht(n)} />
+              </b>
+              <span className="muted" style={{ fontSize: 13 }}>
+                รวม {baht(b.total)} · จ่ายแล้ว {baht(b.paid)} · {b.lines.length} รายการ
+              </span>
+            </div>
+          </section>
           {open && b.balance > 0 && (
             <PayCard
               bill={b}
@@ -163,7 +175,7 @@ export default function BillPage() {
               onError={(t) => setNotice({ kind: 'danger', text: t })}
             />
           )}
-        </div>
+        </aside>
       </div>
     </div>
   );

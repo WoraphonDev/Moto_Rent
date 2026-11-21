@@ -1,0 +1,127 @@
+.wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: #000;
+  color: #fff;
+  animation: m-fade var(--m-dur-s) ease;
+}
+.video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.finder {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: min(260px, 70vw);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 18px;
+  box-shadow: 0 0 0 200vmax rgb(0 0 0 / 0.55);
+}
+.finder i {
+  position: absolute;
+  width: 38px;
+  height: 38px;
+  border: 4px solid #fff;
+}
+.tl {
+  left: -2px;
+  top: -2px;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  border-radius: 18px 0 0 0;
+}
+.tr {
+  right: -2px;
+  top: -2px;
+  border-left: 0 !important;
+  border-bottom: 0 !important;
+  border-radius: 0 18px 0 0;
+}
+.bl {
+  left: -2px;
+  bottom: -2px;
+  border-right: 0 !important;
+  border-top: 0 !important;
+  border-radius: 0 0 0 18px;
+}
+.br {
+  right: -2px;
+  bottom: -2px;
+  border-left: 0 !important;
+  border-top: 0 !important;
+  border-radius: 0 0 18px 0;
+}
+@keyframes scanline {
+  0%,
+  100% {
+    top: 8%;
+  }
+  50% {
+    top: 90%;
+  }
+}
+.line {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  animation: scanline 2.4s ease-in-out infinite;
+}
+.head {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+}
+.round {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 0;
+  background: rgb(255 255 255 / 0.16);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+}
+.round[aria-pressed='true'] {
+  background: #fff;
+  color: var(--ink);
+}
+.bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+.manual {
+  display: flex;
+  gap: 8px;
+}
+.manual .input {
+  flex: 1;
+  background: rgb(255 255 255 / 0.95);
+  color: var(--ink);
+}
+.hint {
+  font-size: 12px;
+  color: #d7d0c8;
+  text-align: center;
+}

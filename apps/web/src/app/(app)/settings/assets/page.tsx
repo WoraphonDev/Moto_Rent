@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
+import { visualKind } from '@/components/asset-visual';
+import { CoverUpload } from '@/components/cover-upload';
 import { useMe } from '@/components/shell';
 import { Empty, Notice, PageHeader, useLoad } from '@/components/ui';
 import { api, type AssetType, type AssetVariant } from '@/lib/api';
@@ -11,6 +13,9 @@ import { messageFor } from '@/lib/messages';
 import styles from './assets.module.css';
 
 type NoticeT = { kind: 'ok' | 'danger'; text: string } | null;
+
+/** ชื่อในร้านเป็นภาษาไทย และยังไม่ได้ตั้งชื่อที่ลูกค้าเห็น → ลูกค้าต่างชาติจะเห็นภาษาไทย */
+const needsEnglish = (t: AssetType) => !t.publicName && /[\u0E00-\u0E7F]/.test(t.name);
 
 /** ตั้งค่า · ประเภทของให้เช่า (mock 6.W3 / SAssetTypes) */
 export default function AssetTypesPage() {
@@ -23,6 +28,7 @@ export default function AssetTypesPage() {
 
   const list = types.data ?? [];
   const sel = list.find((t) => t.id === selected) ?? list[0] ?? null;
+  const missingEnglish = list.filter(needsEnglish).length;
 
   async function run(action: () => Promise<unknown>, ok: string) {
     setNotice(null);
@@ -56,6 +62,11 @@ export default function AssetTypesPage() {
         }
       />
       <Notice notice={notice ?? (types.error ? { kind: 'danger', text: types.error } : null)} />
+      {missingEnglish > 0 && (
+        <div className="alert alert-warn" role="note">
+          {missingEnglish} ประเภทยังไม่มีชื่อภาษาอังกฤษ · ลูกค้าต่างชาติบนหน้าจองออนไลน์จะเห็นเป็นภาษาไทย
+        </div>
+      )}
 
       {adding && (
         <NewType
@@ -85,6 +96,13 @@ export default function AssetTypesPage() {
                   <button type="button" className={styles.row} aria-pressed={sel?.id === t.id} onClick={() => setSelected(t.id)}>
                     <span className={styles.rowMain}>
                       <b>{t.name}</b>
+                      {t.publicName ? (
+                        <span className="muted">ลูกค้าเห็น: {t.publicName}</span>
+                      ) : needsEnglish(t) && (
+                        <span className="badge badge-warn" style={{ alignSelf: 'flex-start' }}>
+                          ยังไม่ตั้งชื่ออังกฤษ · ลูกค้าเห็นภาษาไทย
+                        </span>
+                      )}
                       <span className="muted">
                         {t.tracking === 'unit' ? `${t.codePrefix ?? ''}… · ${t.unitCount} ชิ้น` : `${t.variants.length} ไซส์ · ${t.variants.reduce((s, v) => s + v.quantity, 0)} ชิ้น`}
                         {t.deposit !== null ? ` · มัดจำ ${baht(t.deposit)}` : ''}
@@ -204,17 +222,25 @@ function NewType({ onCreated }: { onCreated: (t: AssetType) => Promise<void> }) 
 }
 
 function EditType({ type, run }: { type: AssetType; run: (a: () => Promise<unknown>, ok: string) => Promise<void> }) {
+  const [name, setName] = useState(type.name);
+  const [publicName, setPublicName] = useState(type.publicName ?? '');
   const [price, setPrice] = useState(String(type.pricePerDay / 100));
   const [deposit, setDeposit] = useState(type.deposit === null ? '' : String(type.deposit / 100));
   const [error, setError] = useState<string | null>(null);
+  const shown = publicName.trim() || name.trim() || type.name;
+  const sample = type.tracking === 'quantity' ? type.variants[0]?.label : null;
 
   function save(e: FormEvent) {
     e.preventDefault();
     const p = parseBaht(price);
     const d = deposit.trim() ? parseBaht(deposit) : null;
+    if (!name.trim()) return setError('ใส่ชื่อในร้าน');
     if (p === null || (deposit.trim() && d === null)) return setError('ราคาและมัดจำต้องเป็นตัวเลข');
     setError(null);
-    void run(() => api.patch(`/v1/asset-types/${type.id}`, { pricePerDay: p, deposit: d }), `บันทึกราคา “${type.name}” แล้ว`);
+    void run(
+      () => api.patch(`/v1/asset-types/${type.id}`, { name: name.trim(), publicName: publicName.trim() || null, pricePerDay: p, deposit: d }),
+      `บันทึก “${name.trim()}” แล้ว`,
+    );
   }
 
   return (
@@ -224,6 +250,39 @@ function EditType({ type, run }: { type: AssetType; run: (a: () => Promise<unkno
         <span className={`badge ${type.tracking === 'unit' ? 'badge-info' : 'badge-warn'}`}>{type.tracking === 'unit' ? 'รายชิ้น' : 'นับจำนวน'}</span>
       </div>
       <div className={`card-body ${styles.form}`}>
+        <div className={styles.coverRow}>
+          <CoverUpload
+            target={{ assetTypeId: type.id }}
+            mediaId={type.coverMediaId}
+            kind={visualKind(type.name, type.tracking)}
+            alt={type.name}
+            onChanged={() => void run(async () => undefined, `อัปเดตรูปหน้าปก “${type.name}” แล้ว`)}
+          />
+          <span className="muted" style={{ fontSize: 12 }}>
+            รูปหน้าปกใช้กับทุกคันในประเภทนี้ และบนหน้าจองของลูกค้า · คันที่สีต่างตั้งรูปเฉพาะคันได้ที่หน้า “รถและของ”
+          </span>
+        </div>
+        <label className="field">
+          ชื่อในร้าน (พนักงานเห็น)
+          <input className="input" required maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label className="field">
+          ชื่อที่ลูกค้าเห็น (อังกฤษ)
+          <input className="input" maxLength={60} placeholder="เช่น Wetsuit" value={publicName} onChange={(e) => setPublicName(e.target.value)} />
+          <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>
+            ใช้บนหน้าจองออนไลน์ หน้าเซ็นสัญญา และ Marketplace · ว่างไว้ = ใช้ชื่อในร้าน
+          </span>
+        </label>
+        <div className={styles.preview} aria-label="ตัวอย่างที่ลูกค้าเห็น">
+          <span className="muted" style={{ fontSize: 12, fontWeight: 600 }}>ตัวอย่างที่ลูกค้าเห็น</span>
+          <div className={styles.previewItem} lang="en">
+            <b>{shown}</b>
+            {sample && <span className="muted"> size {sample}</span>}
+            <div className="muted" style={{ fontSize: 13 }}>
+              {baht(parseBaht(price) ?? type.pricePerDay)} / day
+            </div>
+          </div>
+        </div>
         <div className={styles.formGrid}>
           <label className="field">
             ราคาต่อวัน (บาท)
@@ -245,7 +304,7 @@ function EditType({ type, run }: { type: AssetType; run: (a: () => Promise<unkno
             {error}
           </div>
         )}
-        <button className="btn btn-primary btn-block">บันทึกราคา</button>
+        <button className="btn btn-primary btn-block">บันทึก</button>
 
         <div className={styles.switchRow}>
           <span>

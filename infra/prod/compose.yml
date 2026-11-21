@@ -44,6 +44,7 @@ services:
       S3_REGION: ${S3_REGION:-auto}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
+      TOTP_ENC_KEY: ${TOTP_ENC_KEY:?TOTP_ENC_KEY is required}
     depends_on:
       migrate: { condition: service_completed_successfully }
       valkey: { condition: service_healthy }

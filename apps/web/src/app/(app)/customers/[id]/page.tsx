@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMe } from '@/components/shell';
+import { PageSkeleton, Skeleton, useShowMore } from '@/components/motion';
 import { Empty, Notice, PageHeader, useLoad } from '@/components/ui';
 import { api, type Customer, type RentalStatus } from '@/lib/api';
 import { baht, dateText } from '@/lib/format';
@@ -27,6 +28,7 @@ export default function CustomerDetailPage() {
   const c = useLoad(() => api.get<Customer>(`/v1/customers/${id}`).then((r) => r.data), [id]);
   const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState<{ kind: 'ok' | 'danger'; text: string } | null>(null);
+  const history = useShowMore(c.data?.rentals ?? [], 10);
 
   if (c.error && !c.data) {
     return (
@@ -39,7 +41,7 @@ export default function CustomerDetailPage() {
     );
   }
   const x = c.data;
-  if (!x) return <p className="muted">กำลังโหลด…</p>;
+  if (!x) return <PageSkeleton />;
 
   const initial: CustomerValues = {
     fullName: x.fullName,
@@ -82,8 +84,8 @@ export default function CustomerDetailPage() {
       )}
       <Notice notice={notice} />
 
-      <div className={styles.cols}>
-        <div className={styles.colMain}>
+      <div className="split">
+        <div className="split-main">
           <section className="card">
             <div className="card-head">
               <h2>ข้อมูลลูกค้า</h2>
@@ -132,8 +134,8 @@ export default function CustomerDetailPage() {
             {x.rentals.length === 0 ? (
               <Empty>ยังไม่เคยเช่า</Empty>
             ) : (
-              <ul className={styles.list}>
-                {x.rentals.map((r) => (
+              <ul className={`${styles.list} motion-list`}>
+                {history.visible.map((r) => (
                   <li key={r.id}>
                     <Link href={`/rentals/${r.id}`} className={styles.row}>
                       <span className={styles.main}>
@@ -148,10 +150,11 @@ export default function CustomerDetailPage() {
                 ))}
               </ul>
             )}
+            {history.more}
           </section>
         </div>
 
-        <aside className={styles.colSide}>
+        <aside className="split-side">
           <section className="card">
             <div className="card-head">
               <h2>บิล</h2>
@@ -304,7 +307,7 @@ function DocumentsCard({ customerId, onError }: { customerId: string; onError: (
       </div>
       <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {docs === null ? (
-          <p className="muted">กำลังโหลด…</p>
+          <Skeleton h={90} />
         ) : docs.length === 0 ? (
           <p className="muted">ยังไม่มีรูปเอกสาร</p>
         ) : (

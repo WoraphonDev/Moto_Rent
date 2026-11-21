@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useMe } from '@/components/shell';
+import { Skeleton, Tabs } from '@/components/motion';
 import { Notice, PageHeader, useLoad } from '@/components/ui';
 import { api } from '@/lib/api';
 import type { MessageTemplate, TemplateKey } from '@/lib/api-p3';
@@ -27,6 +28,9 @@ export default function MessagesSettingsPage() {
   const canEdit = me.role !== 'staff';
   const list = useLoad(() => api.get<MessageTemplate[]>('/v1/message-templates').then((r) => r.data));
   const [notice, setNotice] = useState<{ kind: 'ok' | 'danger'; text: string } | null>(null);
+  // แก้ทีละข้อความ (เดิมเรียง 5 การ์ดต่อกันยาว) · แท็บเลือกข้อความ
+  const [selected, setSelected] = useState<TemplateKey>('booking_confirmed');
+  const current = list.data?.find((t) => t.key === selected) ?? list.data?.[0];
 
   return (
     <div className={styles.page}>
@@ -36,21 +40,31 @@ export default function MessagesSettingsPage() {
       </div>
       <Notice notice={notice} />
       {list.error && <Notice notice={{ kind: 'danger', text: list.error }} />}
-      <div className={styles.list}>
-        {(list.data ?? []).map((t) => (
-          <TemplateCard
-            key={t.key}
-            t={t}
-            shop={me.org.name}
-            canEdit={canEdit}
-            onSaved={(text) => {
-              setNotice({ kind: 'ok', text });
-              void list.reload();
-            }}
-            onError={(text) => setNotice({ kind: 'danger', text })}
+      {!list.data && !list.error && <Skeleton h={360} />}
+      {list.data && list.data.length > 0 && (
+        <div className={styles.list}>
+          <Tabs<TemplateKey>
+            label="เลือกข้อความ"
+            value={current?.key ?? selected}
+            onChange={setSelected}
+            tabs={list.data.map((t) => ({ value: t.key, label: LABEL[t.key].title }))}
           />
-        ))}
-      </div>
+          {current && (
+            <div className="motion-swap" key={current.key}>
+              <TemplateCard
+                t={current}
+                shop={me.org.name}
+                canEdit={canEdit}
+                onSaved={(text) => {
+                  setNotice({ kind: 'ok', text });
+                  void list.reload();
+                }}
+                onError={(text) => setNotice({ kind: 'danger', text })}
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

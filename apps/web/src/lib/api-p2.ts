@@ -58,6 +58,9 @@ export interface OrgSettings {
   idleLockMinutes: number;
   /** เปิดหน้าจองออนไลน์ /book/<slug> (ร้านใหม่ปิดไว้ก่อน) */
   publicBookingEnabled: boolean;
+  /** ช่องทางติดต่อร้าน (หน้าสแกน QR ติดรถ) · null = ไม่แสดง */
+  contactWhatsapp?: string | null;
+  contactPhone?: string | null;
 }
 
 export interface SettingsResponse {

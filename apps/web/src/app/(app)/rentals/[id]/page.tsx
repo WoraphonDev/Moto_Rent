@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { latestBySlot, PhotoSlots, PHOTO_SLOTS, useRentalPhotos } from '@/components/photo-slots';
 import { useMe } from '@/components/shell';
+import { PageSkeleton, Tabs } from '@/components/motion';
 import { ConfirmButton, Notice, PageHeader, Stepper, useLoad } from '@/components/ui';
 import { api, type Rental, type ReturnPreview } from '@/lib/api';
 import { baht, dateTimeText, LINE_LABEL, overdueText, parseBaht, dateText } from '@/lib/format';
@@ -27,6 +28,7 @@ export default function RentalPage() {
   const rental = useLoad(() => api.get<RentalWithSign>(`/v1/rentals/${encodeURIComponent(id)}`).then((r) => r.data), [id]);
   const photos = useRentalPhotos(id);
   const [notice, setNotice] = useState<NoticeT>(null);
+  const [tab, setTab] = useState<'contract' | 'photos' | 'bill'>('contract');
   const r = rental.data;
 
   // มาจากปุ่ม "รับคืน" (#return): เลื่อนลงหาฟอร์มเมื่อโหลดเสร็จ
@@ -35,7 +37,7 @@ export default function RentalPage() {
   }, [r]);
 
   if (rental.error) return <Notice notice={{ kind: 'danger', text: rental.error }} />;
-  if (!r) return <p className="muted">กำลังโหลด…</p>;
+  if (!r) return <PageSkeleton />;
 
   const billId = r.billId;
   const active = r.status === 'active';
@@ -88,9 +90,9 @@ export default function RentalPage() {
           </span>
           <span className={styles.nextActions}>
             {checkoutCount < PHOTO_SLOTS.length && (
-              <a className="btn btn-sm" href="#photos">
+              <button type="button" className="btn btn-sm" onClick={() => setTab('photos')}>
                 ถ่ายรูป
-              </a>
+              </button>
             )}
             {!r.signedAt && (
               <Link className="btn btn-sm btn-primary" href={`/sign/${r.id}`}>
@@ -101,13 +103,21 @@ export default function RentalPage() {
         </section>
       )}
 
-      <div className={styles.cols}>
-        <div className={styles.colMain}>
+      <div className="split">
+        <div className="split-main">
           <section className="card">
-            <div className="card-head">
-              <h2>สัญญา</h2>
-              <span className={`badge ${STATUS[r.status].cls}`}>{STATUS[r.status].label}</span>
-            </div>
+            <Tabs
+              label="ส่วนของสัญญา"
+              value={tab}
+              onChange={setTab}
+              tabs={[
+                { value: 'contract', label: <>สัญญา <span className={`badge ${STATUS[r.status].cls}`}>{STATUS[r.status].label}</span></> },
+                ...(hasUnit ? [{ value: 'photos' as const, label: `รูปรถ (${checkoutCount}/${PHOTO_SLOTS.length})` }] : []),
+                { value: 'bill', label: `บิล ${baht(r.total)}` },
+              ]}
+            />
+            {tab === 'contract' && (
+              <div className="motion-swap">
             <dl className={`card-body ${styles.facts}`}>
               <dt>ลูกค้า</dt>
               <dd>
@@ -143,16 +153,10 @@ export default function RentalPage() {
                 </span>
               </dd>
             </dl>
-          </section>
-
-          {hasUnit && (
-            <section className="card" id="photos" aria-labelledby="photos-title">
-              <div className="card-head">
-                <h2 id="photos-title">รูปรถตอนปล่อย</h2>
-                <span className={`badge ${checkoutCount >= PHOTO_SLOTS.length ? 'badge-ok' : 'badge-warn'}`}>
-                  {checkoutCount}/{PHOTO_SLOTS.length} รูป
-                </span>
               </div>
+            )}
+            {tab === 'photos' && hasUnit && (
+              <div className="motion-swap" id="photos">
               <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {photos.error && <div className="alert alert-danger">{photos.error}</div>}
                 {active && checkoutCount < PHOTO_SLOTS.length && (
@@ -161,30 +165,16 @@ export default function RentalPage() {
                 <PhotoSlots rentalId={r.id} stage="checkout" photos={photos.photos} onUploaded={() => void photos.reload()} readOnly={!active} />
                 <SignStatus rental={r} />
               </div>
-            </section>
-          )}
-
-          {!active && returnCount > 0 && (
-            <section className="card">
-              <div className="card-head">
-                <h2>รูปรถตอนรับคืน</h2>
-                <span className="badge badge-neutral">{returnCount}/{PHOTO_SLOTS.length} รูป · มุมขวาล่าง = ตอนปล่อย</span>
-              </div>
-              <div className="card-body">
+                {!active && returnCount > 0 && (
+                  <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--line-subtle)' }}>
+                    <b>รูปรถตอนรับคืน <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>· มุมขวาล่าง = ตอนปล่อย</span></b>
                 <PhotoSlots rentalId={r.id} stage="return" photos={photos.photos} onUploaded={() => void photos.reload()} readOnly />
+                  </div>
+                )}
               </div>
-            </section>
-          )}
-
-          <section className="card">
-            <div className="card-head">
-              <h2>รายการในบิล</h2>
-              {billId && (
-                <Link href={`/bills/${billId}`} style={{ fontSize: 13, fontWeight: 600 }}>
-                  ไปที่บิล →
-                </Link>
-              )}
-            </div>
+            )}
+            {tab === 'bill' && (
+              <div className="motion-swap">
             <ul className={styles.lines}>
               {r.lines.map((l) => (
                 <li key={l.id}>
@@ -200,21 +190,21 @@ export default function RentalPage() {
               <span>รวมสัญญานี้</span>
               <b>{baht(r.total)}</b>
             </div>
-          </section>
 
+                {billId && (
+                  <div className="card-body">
+                    <Link href={`/bills/${billId}`} className="btn btn-block">
+                      ไปที่บิลของลูกค้า →
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
         </div>
 
         {active && (
-          <div className={styles.colSide}>
-            <ExtendCard
-              rental={r}
-              maxDays={me.settings.maxRentalDays}
-              onDone={(next, days) => {
-                setRental(next);
-                setNotice({ kind: 'ok', text: `ต่ออีก ${days} วันแล้ว · คืน ${dateTimeText(next.dueAt)}` });
-              }}
-              onError={(t) => setNotice({ kind: 'danger', text: t })}
-            />
+          <aside className="split-side" id="return">
             <ReturnCard
               rental={r}
               photos={photos.photos}
@@ -226,11 +216,26 @@ export default function RentalPage() {
               }}
               onError={(t) => setNotice({ kind: 'danger', text: t })}
             />
-          </div>
+            <ExtendCard
+              rental={r}
+              maxDays={me.settings.maxRentalDays}
+              onDone={(next, days) => {
+                setRental(next);
+                setNotice({ kind: 'ok', text: `ต่ออีก ${days} วันแล้ว · คืน ${dateTimeText(next.dueAt)}` });
+              }}
+              onError={(t) => setNotice({ kind: 'danger', text: t })}
+            />
+            {me.role === 'owner' && (
+              <details className={styles.cancelBox}>
+                <summary>ยกเลิกสัญญา (เจ้าของ)</summary>
+                <CancelCard id={r.id} onDone={(next) => { setRental(next); setNotice({ kind: 'ok', text: 'ยกเลิกสัญญาแล้ว' }); }} onError={(t) => setNotice({ kind: 'danger', text: t })} />
+              </details>
+            )}
+          </aside>
         )}
 
         {!active && r.status === 'returned' && billId && (
-          <div className={styles.colSide}>
+          <aside className="split-side">
             <section className="now">
               <span className="now-label">รับคืนแล้ว</span>
               <h2 style={{ fontSize: 20 }}>ยอดสัญญานี้ {baht(r.total)}</h2>
@@ -239,10 +244,9 @@ export default function RentalPage() {
                 รับเงิน
               </Link>
             </section>
-          </div>
+          </aside>
         )}
       </div>
-      {active && me.role === 'owner' && <CancelCard id={r.id} onDone={(next) => { setRental(next); setNotice({ kind: 'ok', text: 'ยกเลิกสัญญาแล้ว' }); }} onError={(t) => setNotice({ kind: 'danger', text: t })} />}
     </div>
   );
 }

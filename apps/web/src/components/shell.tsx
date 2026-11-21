@@ -5,14 +5,13 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { api, ApiError, type LoginResponse, type Me, type Role } from '@/lib/api';
 import { messageFor, ROLE_LABEL } from '@/lib/messages';
-import { clearOutbox, pendingCount, setOutboxOwner } from '@/lib/offline';
-import { readLocal, writeLocal } from '@/lib/storage';
+import { clearOutbox, listQueued, setOutboxOwner } from '@/lib/offline';
+import { PageSkeleton, useSlidingIndicator } from '@/components/motion';
+import { ACTIVITY_KEY, LOCK_KEY, readLocal, writeLocal } from '@/lib/storage';
 
-const LOCK_KEY = 'rental.locked';
-const ACTIVITY_KEY = 'rental.lastActivity';
 import styles from './shell.module.css';
 
-const MeContext = createContext<{ me: Me; reload: () => Promise<void> } | null>(null);
+const MeContext = createContext<{ me: Me; reload: () => Promise<void>; logout: () => void } | null>(null);
 
 export function useMe() {
   const v = useContext(MeContext);
@@ -68,17 +67,19 @@ export function initials(name: string) {
 }
 
 /** โครงหน้าหลังเข้าระบบ: เว็บ = แถบบนเข้ม + เมนูข้างขาว · มือถือ = แถบเมนูล่างสีเข้ม */
-/**
- * ออกจากระบบ: เตือนถ้ายังมีรายการออฟไลน์ค้างส่ง แล้วล้างกล่องรอส่ง (เครื่องหน้าร้านใช้ร่วมกัน)
- * คืน false ถ้าผู้ใช้กดยกเลิก
- */
-export async function signOut(): Promise<boolean> {
-  const n = await pendingCount().catch(() => 0);
-  if (n > 0 && !window.confirm(`ยังมี ${n} รายการที่ยังไม่ได้ส่งขึ้นระบบ ถ้าออกตอนนี้รายการจะหาย · ออกเลยไหม`)) return false;
+/** ออกจากระบบจริง: ปิด session แล้วล้างกล่องรอส่ง (เครื่องหน้าร้านใช้ร่วมกัน รายการของคนหนึ่งต้องไม่ถูกส่งในชื่ออีกคน) */
+async function signOut(): Promise<void> {
   await api.post('/v1/auth/logout').catch(() => undefined);
   setOutboxOwner(null, null);
   await clearOutbox();
-  return true;
+}
+
+/** รายการออฟไลน์ที่ยังรอส่ง แยกตามชนิด เช่น "ปล่อยเช่า 1 · รับเงิน 1" */
+async function pendingSummary(): Promise<{ n: number; text: string }> {
+  const items = (await listQueued().catch(() => [])).filter((i) => !i.failed);
+  const by = new Map<string, number>();
+  for (const i of items) by.set(i.label, (by.get(i.label) ?? 0) + 1);
+  return { n: items.length, text: [...by].map(([k, v]) => `${k} ${v}`).join(' · ') };
 }
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -93,6 +94,11 @@ export function Shell({ children }: { children: ReactNode }) {
     setLockedState(v);
   }, []);
   const [online, setOnline] = useState(true);
+  const [confirmOut, setConfirmOut] = useState<{ n: number; text: string } | null>(null);
+  const sideRef = useRef<HTMLElement>(null);
+  const bottomRef = useRef<HTMLElement>(null);
+  useSlidingIndicator(sideRef, "a[aria-current='page']", [pathname, !!me]);
+  useSlidingIndicator(bottomRef, "a[aria-current='page']", [pathname, !!me]);
 
   const reload = useCallback(async () => {
     try {
@@ -128,17 +134,20 @@ export function Shell({ children }: { children: ReactNode }) {
   // ล็อกจอ = ปิด session นี้ทันที (ทำใน LockScreen) ปลดล็อกต้องใส่รหัสใหม่ เพราะเครื่องหน้าร้านใช้ร่วมกันหลายคน
   useIdleLock(me?.settings.idleLockMinutes ?? 15, !!me && !locked, () => setLocked(true));
 
-  if (!me) return <div className={styles.loading}>กำลังโหลด…</div>;
+  if (!me) return <ShellSkeleton />;
 
   const nav = NAV.filter((n) => !n.roles || n.roles.includes(me.role));
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
   async function logout() {
-    if (await signOut()) router.replace('/login');
+    const p = await pendingSummary();
+    if (p.n > 0) return setConfirmOut(p);
+    await signOut();
+    router.replace('/login');
   }
 
   return (
-    <MeContext.Provider value={{ me, reload }}>
+    <MeContext.Provider value={{ me, reload, logout: () => void logout() }}>
       <header className={styles.top}>
         <div className={styles.brand}>
           <span className="sun" aria-hidden="true" />
@@ -157,7 +166,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <button type="button" className={styles.topBtn} onClick={logout}>ออก</button>
       </header>
       <div className={styles.body}>
-        <nav className={styles.side} aria-label="เมนูหลัก">
+        <nav ref={sideRef} className={styles.side} aria-label="เมนูหลัก">
           {nav.filter((n) => !n.section).map((n) => (
             <Link key={n.href} href={n.href} className={styles.navLink} aria-current={isActive(n.href) ? 'page' : undefined}>
               {n.icon}
@@ -172,9 +181,11 @@ export function Shell({ children }: { children: ReactNode }) {
             </Link>
           ))}
         </nav>
-        <main className={styles.main}>{children}</main>
+        <main className={styles.main}>
+          <PageFrame path={pathname}>{children}</PageFrame>
+        </main>
       </div>
-      <nav className={styles.bottom} aria-label="เมนูหลัก (มือถือ)">
+      <nav ref={bottomRef} className={styles.bottom} aria-label="เมนูหลัก (มือถือ)">
         {nav.filter((n) => n.mobile).map((n) => (
           <Link key={n.href} href={n.href} className={styles.bottomLink} aria-current={isActive(n.href) ? 'page' : undefined}>
             <span className={styles.bottomIcon}>{n.icon}</span>
@@ -186,6 +197,32 @@ export function Shell({ children }: { children: ReactNode }) {
           เมนู
         </Link>
       </nav>
+      {confirmOut && (
+        <div className={styles.lock} role="dialog" aria-modal="true" aria-labelledby="out-title">
+          <div className={`card ${styles.outBox}`}>
+            <h2 id="out-title">ยังมีงานที่ยังไม่ได้ส่ง</h2>
+            <p>
+              ยังมี <b>{confirmOut.n} รายการ</b> ที่ยังไม่ได้ส่งขึ้นระบบ{confirmOut.text ? ` (${confirmOut.text})` : ''} ถ้าออกตอนนี้รายการจะหาย · ออกเลยไหม
+            </p>
+            <div className={styles.outActions}>
+              <button type="button" className="btn" autoFocus onClick={() => setConfirmOut(null)}>
+                รอให้ส่งก่อน
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={async () => {
+                  setConfirmOut(null);
+                  await signOut();
+                  router.replace('/login');
+                }}
+              >
+                ออกเลย ทิ้งรายการ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {locked && <LockScreen me={me} onUnlocked={() => { setLocked(false); void reload(); }} />}
     </MeContext.Provider>
   );
@@ -262,6 +299,32 @@ function LockScreen({ me, onUnlocked }: { me: Me; onUnlocked: () => void }) {
         <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'กำลังตรวจสอบ…' : 'ปลดล็อก'}</button>
         <button type="button" className="btn btn-block" onClick={() => router.replace('/login')}>เปลี่ยนผู้ใช้</button>
       </form>
+    </div>
+  );
+}
+
+/**
+ * กรอบหน้าเดียวกันทุกหน้า (กว้างสูงสุด 1280 จัดกลาง) + ท่าเปลี่ยนหน้า
+ * key ตาม path: เปลี่ยนหน้า = เล่นท่าใหม่ · [data-entering] อยู่ช่วงสั้นๆ ให้แถวไล่กันเฉพาะตอนเปิดหน้า
+ */
+function PageFrame({ path, children }: { path: string; children: ReactNode }) {
+  const [entering, setEntering] = useState(true);
+  useEffect(() => {
+    setEntering(true);
+    const t = setTimeout(() => setEntering(false), 1400);
+    return () => clearTimeout(t);
+  }, [path]);
+  return (
+    <div key={path} className="page-frame page-enter" data-entering={entering || undefined}>
+      {children}
+    </div>
+  );
+}
+
+function ShellSkeleton() {
+  return (
+    <div className={styles.loading} style={{ alignItems: 'flex-start', padding: '72px 24px' }}>
+      <PageSkeleton />
     </div>
   );
 }

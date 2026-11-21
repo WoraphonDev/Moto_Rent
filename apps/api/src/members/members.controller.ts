@@ -12,6 +12,7 @@ import { Auth, Roles, type AuthCtx } from '../auth/context.js';
 import { hashPassword, newToken, tokenHash } from '../auth/crypto.js';
 import { passwordProblems, passwordSchema } from '../auth/password-policy.js';
 import { SessionGuard } from '../auth/session.guard.js';
+import { TotpService } from '../auth/totp.service.js';
 
 const INVITE_TTL_MS = 24 * 3_600_000;
 
@@ -38,6 +39,7 @@ export class MembersController {
     @Inject(DB) private readonly db: Db,
     @Inject(CONFIG) private readonly config: Config,
     private readonly limiter: RateLimiter,
+    private readonly totp: TotpService,
   ) {}
 
   // ---------- ลิงก์เชิญ ----------
@@ -47,6 +49,7 @@ export class MembersController {
   @Roles('owner')
   async invite(@Auth() a: AuthCtx, @Body() body: unknown) {
     const input = parse(inviteBody, body);
+    await this.totp.requireRecent(a);
     await this.limiter.hit('invite-create', a.userId, 30, 3600);
     const taken = await this.db.execute(sql`select 1 from auth.find_login(${input.username})`);
     if (taken.rows.length) throw new AppError(HttpStatus.CONFLICT, 'username_taken');
@@ -57,6 +60,7 @@ export class MembersController {
   @UseGuards(SessionGuard)
   @Roles('owner')
   async resetLink(@Auth() a: AuthCtx, @Param('userId', ParseUUIDPipe) userId: string) {
+    await this.totp.requireRecent(a);
     const member = await withTenant(this.db, a, async (tx) => {
       const [m] = await tx
         .select({ username: users.username, displayName: users.displayName, phone: users.phone, role: memberships.role })
@@ -229,6 +233,7 @@ export class MembersController {
   @Roles('owner')
   async approve(@Auth() a: AuthCtx, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown) {
     const { code } = parse(approveBody, body);
+    await this.totp.requireRecent(a);
     await withTenant(this.db, a, async (tx) => {
       const [d] = await tx.select({ status: devices.status, code: devices.approvalCode }).from(devices).where(eq(devices.id, id));
       if (!d || d.status !== 'pending') throw new AppError(HttpStatus.NOT_FOUND, 'device_not_pending');

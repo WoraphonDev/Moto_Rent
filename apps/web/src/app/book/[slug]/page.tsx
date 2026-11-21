@@ -1,5 +1,6 @@
 'use client';
 
+import { AssetImage, visualKind } from '@/components/asset-visual';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { api } from '@/lib/api';
@@ -157,6 +158,7 @@ export default function BookPage() {
             {shop.types.map((t) =>
               t.tracking === 'unit' ? (
                 <div key={t.id} className={styles.typeRow}>
+                  <TypeThumb t={t} />
                   <div className={styles.typeName}>
                     <b>{t.name}</b>
                     <div className="muted">{thb(t.pricePerDay)} / day</div>
@@ -166,6 +168,7 @@ export default function BookPage() {
               ) : (
                 t.variants.map((v) => (
                   <div key={v.id} className={styles.typeRow}>
+                    <TypeThumb t={t} />
                     <div className={styles.typeName}>
                       <b>{t.name}</b> <span className="muted">size {v.label}</span>
                       <div className="muted">{thb(t.pricePerDay)} / day</div>
@@ -331,5 +334,14 @@ function Counter({ label, value, min = 0, max, onChange }: { label: string; valu
       <output aria-live="polite">{value}</output>
       <button type="button" aria-label={`More ${label}`} disabled={value >= max} onClick={() => onChange(value + 1)}>+</button>
     </div>
+  );
+}
+
+/** รูปประเภท (หน้าปกที่ร้านตั้ง) · ไม่มีรูป = ภาพวาดแทน (mock 9.W4) */
+function TypeThumb({ t }: { t: PublicShop['types'][number] }) {
+  return (
+    <span className={styles.thumb}>
+      <AssetImage src={t.coverUrl ? `/api${t.coverUrl}` : null} kind={visualKind(t.name, t.tracking)} alt={t.name} ratio={1} />
+    </span>
   );
 }

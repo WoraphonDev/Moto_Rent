@@ -42,9 +42,13 @@ export const orgSettings = pgTable(
     idleLockMinutes: integer().notNull().default(15),
     /** เปิดหน้าจองสาธารณะ (ร้านใหม่ปิดไว้ก่อน) */
     publicBookingEnabled: boolean().notNull().default(false),
+    /** ช่องทางติดต่อร้านที่แสดงบนหน้า QR/หน้าจอง · เก็บเป็นตัวเลขล้วน (มี + นำหน้าได้) */
+    contactWhatsapp: text(),
+    contactPhone: text(),
     updatedAt: createdAt(),
   },
   (t) => [
+    check('org_settings_contact_check', sql`(${t.contactWhatsapp} is null or ${t.contactWhatsapp} ~ '^[+]?[0-9]{8,15}$') and (${t.contactPhone} is null or ${t.contactPhone} ~ '^[+]?[0-9]{8,15}$')`),
     check('org_settings_late_check', sql`${t.lateGraceMinutes} >= 0 and ${t.lateHalfDayUntilMinutes} >= ${t.lateGraceMinutes}`),
     check('org_settings_positive', sql`${t.docRetentionDays} > 0 and ${t.idleLockMinutes} > 0 and ${t.staffDiscountCap} >= 0`),
   ],
@@ -200,8 +204,44 @@ export const sessions = pgTable(
     revokedAt: timestamp({ withTimezone: true }),
     /** โหมดลูกค้า (ยื่นเครื่องให้ลูกค้าเซ็น) · FK ไป rentals อยู่ใน migration 0009 */
     customerModeRentalId: uuid(),
+    /** ยืนยันรหัส 6 หลักล่าสุดใน session นี้ (งานสำคัญไม่ถามซ้ำ 15 นาที) · ตั้งผ่าน auth.totp_* เท่านั้น */
+    totpVerifiedAt: timestamp({ withTimezone: true }),
   },
   (t) => [uniqueIndex('sessions_token_key').on(t.tokenHash), index('sessions_user_idx').on(t.userId)],
+);
+
+/**
+ * ยืนยันตัวตน 2 ชั้น (TOTP) ของผู้ใช้ · ข้อมูลระดับบุคคล ไม่ใช่ของร้าน จึงไม่มี org_id
+ * API อ่าน/เขียนตรงไม่ได้ (ไม่มีสิทธิ์ตาราง) · ใช้ฟังก์ชัน auth.totp_* เท่านั้น
+ * secret เข้ารหัสด้วยกุญแจของ API (AES-256-GCM) ก่อนเก็บ
+ */
+export const userTotp = pgTable('user_totp', {
+  userId: uuid()
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  secretEnc: text().notNull(),
+  /** null = ตั้งค่าอยู่ ยังไม่ยืนยันรหัสแรก */
+  enabledAt: timestamp({ withTimezone: true }),
+  /** ช่วงเวลา 30 วินาทีล่าสุดที่ใช้ไปแล้ว · กันใช้รหัสเดิมซ้ำ */
+  lastStep: bigint({ mode: 'number' }),
+  failedCount: integer().notNull().default(0),
+  lockedUntil: timestamp({ withTimezone: true }),
+  createdAt: createdAt(),
+});
+
+/** รหัสสำรอง 8 ชุด (เก็บเฉพาะ hash) · ใช้ได้รหัสละครั้ง */
+export const userBackupCodes = pgTable(
+  'user_backup_codes',
+  {
+    id: id(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    codeHash: text().notNull(),
+    usedAt: timestamp({ withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('user_backup_codes_key').on(t.userId, t.codeHash)],
 );
 
 /** ประวัติการใช้งาน · เพิ่มได้อย่างเดียว ลบหรือแก้ไม่ได้ (บังคับที่ฐานข้อมูล) */

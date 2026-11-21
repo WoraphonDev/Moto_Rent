@@ -1,0 +1,125 @@
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 18px;
+  padding: 16px;
+}
+.gearGrid {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr);
+}
+.gallery,
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.thumbs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+.thumb {
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: none;
+  cursor: pointer;
+  transition: border-color var(--m-dur-s);
+}
+.thumb[aria-pressed='true'] {
+  border-color: var(--primary);
+}
+.nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.kv {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 8px 12px;
+  margin: 0;
+  font-size: 14px;
+}
+.kv dt {
+  color: var(--muted);
+}
+.kv dd {
+  margin: 0;
+  min-width: 0;
+}
+.bar {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--sunk);
+  overflow: hidden;
+  margin: 6px 0 2px;
+  flex: 1;
+}
+.bar > span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  border-radius: 4px;
+}
+.hist {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.hist li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line-subtle);
+  font-size: 13px;
+}
+.hist a {
+  color: var(--ink);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.sizes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sizes li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sizeLabel {
+  width: 36px;
+  flex: none;
+}
+.sizeCount {
+  width: 120px;
+  flex: none;
+  text-align: right;
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .grid,
+  .gearGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .thumbs {
+    grid-template-columns: repeat(6, minmax(52px, 1fr));
+    overflow-x: auto;
+  }
+  .sizeCount {
+    width: auto;
+  }
+}

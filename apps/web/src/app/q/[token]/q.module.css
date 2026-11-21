@@ -1,0 +1,33 @@
+.page {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 8px 0 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.page h1 {
+  font-size: 28px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.wa {
+  background: var(--ok-text);
+  border-color: var(--ok-text);
+  color: #fff;
+}
+.wa:hover {
+  color: #fff;
+}
+.staff {
+  align-self: center;
+  font-size: 13px;
+  color: var(--muted);
+}

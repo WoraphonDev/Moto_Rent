@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { CountUp, Skeleton } from '@/components/motion';
 import { ConfirmButton, Empty, Notice, PageHeader, useLoad } from '@/components/ui';
 import { api } from '@/lib/api';
 import type { DayClose, DayCloseSummary } from '@/lib/api-p1';
@@ -52,15 +53,19 @@ export default function DayClosePage() {
       <Notice notice={summary.error ? { kind: 'danger', text: summary.error } : notice} />
 
       {!s ? (
-        <p className="muted">กำลังโหลด…</p>
+        <div className="grid-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} h={300} />
+          ))}
+        </div>
       ) : (
-        <div className={styles.cols}>
+        <div className="grid-3">
           <section className="card" aria-labelledby="totals-title">
             <div className="card-head">
               <h2 id="totals-title">เงินเข้า {dateText(s.date)}</h2>
               {s.closed ? <span className="badge badge-ok">ปิดยอดแล้ว</span> : <span className="badge badge-warn">ยังไม่ปิด</span>}
             </div>
-            <div className="card-body">
+            <div className="card-body" style={{ gap: 10 }}>
               {s.byMethod.length === 0 ? (
                 <p className="muted">ยังไม่มีการรับเงินในวันนี้</p>
               ) : (
@@ -75,16 +80,18 @@ export default function DayClosePage() {
                   ))}
                 </ul>
               )}
-              <div className={styles.expected}>
+              <div className={`${styles.expected} card-foot`}>
                 <span>เงินสดที่ควรมีในลิ้นชัก</span>
-                <b>{baht(s.expectedCash)}</b>
+                <b>
+                  <CountUp value={s.expectedCash} format={(n) => baht(n)} />
+                </b>
               </div>
               <p className="muted" style={{ fontSize: 12 }}>PromptPay / โอน / บัตร รวม {baht(s.expectedOther)} · ตรวจกับแอปธนาคาร</p>
             </div>
           </section>
 
           {s.closed ? (
-            <section className="now" aria-label="ปิดยอดแล้ว">
+            <section className={`now ${styles.closedCard}`} aria-label="ปิดยอดแล้ว">
               <span className="now-label">ปิดยอดแล้ว</span>
               <h2 style={{ fontSize: 20 }}>
                 นับได้ {baht(s.closed.countedCash)} · {s.closed.difference === 0 ? 'ยอดตรง' : `${s.closed.difference < 0 ? 'ขาด' : 'เกิน'} ${baht(Math.abs(s.closed.difference))}`}
@@ -117,53 +124,40 @@ export default function DayClosePage() {
                 <div className="alert alert-warn" role="note">
                   ปิดยอดวันนี้แล้วจะรับเงินเพิ่มในวันนี้ไม่ได้ · ปิดหลังร้านปิดและรับเงินลูกค้าครบแล้ว
                 </div>
-                <ConfirmButton label="ล็อกยอดวันนี้" className="btn btn-primary btn-block" onConfirm={() => void close()} />
-                <span className="muted" style={{ fontSize: 12 }}>หลังล็อก รับเงินหรือยกเลิกบิลที่รับเงินในวันนี้ไม่ได้ · ยอดไม่ตรงบันทึกเป็นรายการเสี่ยง</span>
+                <div className="card-foot" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <ConfirmButton label="ล็อกยอดวันนี้" className="btn btn-primary btn-block" onConfirm={() => void close()} />
+                  <span className="muted" style={{ fontSize: 12 }}>หลังล็อก รับเงินหรือยกเลิกบิลที่รับเงินในวันนี้ไม่ได้ · ยอดไม่ตรงบันทึกเป็นรายการเสี่ยง</span>
+                </div>
               </div>
             </section>
           )}
 
-          <section className={`card ${styles.recent}`} aria-labelledby="recent-title">
+          <section className="card" aria-labelledby="recent-title">
             <div className="card-head">
               <h2 id="recent-title">ปิดยอดล่าสุด</h2>
             </div>
             {s.recent.length === 0 ? (
               <Empty>ยังไม่เคยปิดยอด</Empty>
             ) : (
-              <div className="scroll-x">
-                <table className="table table-stack">
-                  <thead>
-                    <tr>
-                      <th scope="col">วันที่</th>
-                      <th scope="col">ที่ควรมี</th>
-                      <th scope="col">นับได้</th>
-                      <th scope="col">ต่าง</th>
-                      <th scope="col">โดย</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {s.recent.map((r) => (
-                      <tr key={r.id}>
-                        <td>
-                          <b>{dateText(r.date)}</b>
-                        </td>
-                        <td data-label="ที่ควรมี">{baht(r.expectedCash)}</td>
-                        <td data-label="นับได้">{baht(r.countedCash)}</td>
-                        <td data-label="ต่าง">
-                          {r.difference === 0 ? (
-                            <span className="badge badge-ok">ตรง</span>
-                          ) : (
-                            <span className={`badge ${r.difference < 0 ? 'badge-danger' : 'badge-warn'}`}>
-                              {r.difference < 0 ? 'ขาด' : 'เกิน'} {baht(Math.abs(r.difference))}
-                            </span>
-                          )}
-                        </td>
-                        <td data-label="โดย">{r.closedBy}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ul className={`${styles.recentList} motion-list`}>
+                {s.recent.slice(0, 7).map((r) => (
+                  <li key={r.id}>
+                    <span style={{ minWidth: 0 }}>
+                      <b>{dateText(r.date)}</b>
+                      <span className="muted" style={{ display: 'block', fontSize: 12 }}>
+                        {r.closedBy} · นับได้ {baht(r.countedCash)} จาก {baht(r.expectedCash)}
+                      </span>
+                    </span>
+                    {r.difference === 0 ? (
+                      <span className="badge badge-ok">ตรง</span>
+                    ) : (
+                      <span className={`badge ${r.difference < 0 ? 'badge-danger' : 'badge-warn'}`}>
+                        {r.difference < 0 ? 'ขาด' : 'เกิน'} {baht(Math.abs(r.difference))}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
         </div>

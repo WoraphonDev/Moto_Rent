@@ -408,3 +408,8 @@
     font-size: 36px;
   }
 }
+
+.thumb {
+  width: 64px;
+  flex: none;
+}

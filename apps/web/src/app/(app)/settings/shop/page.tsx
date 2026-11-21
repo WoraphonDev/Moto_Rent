@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useMe } from '@/components/shell';
+import { Skeleton } from '@/components/motion';
 import { Notice, PageHeader, useLoad } from '@/components/ui';
 import { api } from '@/lib/api';
 import type { OrgSettings, SettingsResponse } from '@/lib/api-p2';
@@ -58,9 +59,16 @@ export default function ShopSettingsPage() {
     <div className={styles.page}>
       <PageHeader kicker="ตั้งค่า · เจ้าของเท่านั้น · ทุกการเปลี่ยนแปลงเข้าประวัติการใช้งาน" title="กฎและข้อมูลร้าน" />
       <Notice notice={notice ?? (data.error ? { kind: 'danger', text: data.error } : null)} />
+      {!d && !data.error && (
+        <div className="grid-2">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} h={260} />
+          ))}
+        </div>
+      )}
       {d && (
-        <div className={styles.grid}>
-          <OrgCard org={d.org} run={run} />
+        <div className="grid-2">
+          <OrgCard org={d.org} settings={d.settings} run={run} />
           <BookingCard enabled={d.settings.publicBookingEnabled} slug={d.org.slug} run={run} />
           <RulesForm key={`rules-${d.settings.lateGraceMinutes}-${d.settings.lateHalfDayUntilMinutes}-${d.settings.maxRentalDays}`} s={d.settings} run={run} />
           <MoneyForm key={`money-${d.settings.staffDiscountCap}-${d.settings.depositNonGuest}`} s={d.settings} run={run} />
@@ -82,21 +90,34 @@ function Section({ title, hint, children, onSubmit, submitLabel = 'บันท�
         {hint && <p className="muted" style={{ fontSize: 13 }}>{hint}</p>}
       </div>
       {children}
-      <button className="btn btn-primary">{submitLabel}</button>
+      <button className="btn btn-primary card-foot">{submitLabel}</button>
     </form>
   );
 }
 
-function OrgCard({ org, run }: { org: SettingsResponse['org']; run: Run }) {
+const phoneOk = (v: string) => v.trim() === '' || /^\+?[0-9]{8,15}$/.test(v.replace(/[\s-]/g, ''));
+const cleanPhone = (v: string) => (v.trim() ? v.replace(/[\s-]/g, '') : null);
+
+function OrgCard({ org, settings, run }: { org: SettingsResponse['org']; settings: OrgSettings; run: Run }) {
   const [name, setName] = useState(org.name);
   const [tz, setTz] = useState(org.timezone);
+  // ช่องทางติดต่อร้าน: แสดงบนหน้าที่ลูกค้า/คนนอกสแกน QR ติดรถ
+  const [wa, setWa] = useState(settings.contactWhatsapp ?? '');
+  const [tel, setTel] = useState(settings.contactPhone ?? '');
+  const [err, setErr] = useState<string | null>(null);
   return (
     <Section
       title="ข้อมูลร้าน"
       hint={`ที่อยู่หน้าจอง: ${org.slug} · สกุลเงิน ${org.currency}`}
       onSubmit={(e) => {
         e.preventDefault();
-        void run(() => api.patch('/v1/orgs/current', { name: name.trim(), timezone: tz }), 'บันทึกข้อมูลร้านแล้ว');
+        if (!phoneOk(wa) || !phoneOk(tel)) return setErr('เบอร์ใส่ตัวเลข 8–15 หลัก ขึ้นต้นด้วย + ได้ เช่น +66812345678');
+        setErr(null);
+        const contactChanged = cleanPhone(wa) !== (settings.contactWhatsapp ?? null) || cleanPhone(tel) !== (settings.contactPhone ?? null);
+        void run(async () => {
+          await api.patch('/v1/orgs/current', { name: name.trim(), timezone: tz });
+          if (contactChanged) await api.patch('/v1/settings', { contactWhatsapp: cleanPhone(wa), contactPhone: cleanPhone(tel) });
+        }, 'บันทึกข้อมูลร้านแล้ว');
       }}
     >
       <label className="field">
@@ -113,6 +134,24 @@ function OrgCard({ org, run }: { org: SettingsResponse['org']; run: Run }) {
           ))}
         </select>
       </label>
+      <div className={styles.twoCol}>
+        <label className="field">
+          WhatsApp ร้าน
+          <input className="input" inputMode="tel" placeholder="+66812345678" value={wa} onChange={(e) => setWa(e.target.value)} />
+        </label>
+        <label className="field">
+          เบอร์โทรร้าน
+          <input className="input" inputMode="tel" placeholder="+66812345678" value={tel} onChange={(e) => setTel(e.target.value)} />
+        </label>
+      </div>
+      <p className="muted" style={{ fontSize: 12 }}>
+        แสดงบนหน้าที่ลูกค้าหรือคนเจอรถสแกน QR ติดรถ · ไม่ใส่ = ไม่แสดง
+      </p>
+      {err && (
+        <div className="alert alert-danger" role="alert">
+          {err}
+        </div>
+      )}
     </Section>
   );
 }

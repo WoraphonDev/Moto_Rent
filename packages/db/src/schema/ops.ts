@@ -19,6 +19,7 @@ const money = () => bigint({ mode: 'number' });
  * - document: พาสปอร์ต/ใบขับขี่ · ลบอัตโนมัติตาม delete_after (PDPA) · การเปิดดูทุกครั้งบันทึกใน audit_log
  * - signature: ลายเซ็นลูกค้าบนสัญญา
  * - maintenance_receipt: ใบเสร็จค่าซ่อม
+ * - cover: รูปหน้าปกของประเภท (asset_type_id) หรือของคัน (asset_id) · ไม่มีกำหนดลบ · ถูกแทนที่แล้วตั้งกำหนดลบไฟล์เก่า
  */
 export const media = pgTable(
   'media',
@@ -31,6 +32,7 @@ export const media = pgTable(
     rentalId: uuid().references(() => rentals.id),
     customerId: uuid().references(() => customers.id),
     assetId: uuid().references(() => assets.id),
+    assetTypeId: uuid().references(() => assetTypes.id),
     maintenanceId: uuid(),
     storageKey: text().notNull(),
     contentType: text().notNull(),
@@ -47,7 +49,7 @@ export const media = pgTable(
     index('media_customer_idx').on(t.customerId),
     index('media_purge_idx').on(t.deleteAfter).where(sql`${t.deletedAt} is null and ${t.deleteAfter} is not null`),
     uniqueIndex('media_storage_key').on(t.storageKey),
-    check('media_kind_check', sql`${t.kind} in ('vehicle_photo', 'document', 'signature', 'maintenance_receipt')`),
+    check('media_kind_check', sql`${t.kind} in ('vehicle_photo', 'document', 'signature', 'maintenance_receipt', 'cover')`),
     check('media_stage_check', sql`${t.stage} is null or ${t.stage} in ('checkout', 'return')`),
     check('media_size_check', sql`${t.sizeBytes} > 0 and ${t.sizeBytes} <= 15728640`),
   ],

@@ -111,3 +111,12 @@
     padding: 20px 16px 32px;
   }
 }
+
+.otp {
+  font-family: var(--font-head);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  text-align: center;
+  min-height: 56px;
+}

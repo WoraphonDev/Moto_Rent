@@ -67,6 +67,23 @@ describe('ร้านต้องเปิดหน้าจองเอง', (
   });
 });
 
+describe('ชื่อที่ลูกค้าเห็น (ภาษาอังกฤษ)', () => {
+  it('ตั้งชื่ออังกฤษ → หน้าจองใช้ชื่อนั้น · ลบออก (ว่าง) → กลับไปใช้ชื่อในร้าน · พนักงานแก้ไม่ได้', async () => {
+    const gear = (await owner.post('/v1/asset-types').set(json).send({ name: 'ชุดดำน้ำ', tracking: 'quantity', pricePerDay: 10_000 })).body.id as string;
+    await owner.post(`/v1/asset-types/${gear}/variants`).set(json).send({ label: 'M', quantity: 3 });
+    const names = async () => ((await pub().get(`/v1/public/shops/${slug}`)).body.types as Array<{ id: string; name: string }>).find((t) => t.id === gear)?.name;
+    expect(await names()).toBe('ชุดดำน้ำ');
+    expect((await staff.patch(`/v1/asset-types/${gear}`).set(json).send({ publicName: 'X' })).status).toBe(403);
+    const r = await owner.patch(`/v1/asset-types/${gear}`).set(json).send({ publicName: '  Wetsuit ' });
+    expect(r.status).toBe(200);
+    expect(r.body.publicName).toBe('Wetsuit');
+    expect(await names()).toBe('Wetsuit');
+    expect((await owner.patch(`/v1/asset-types/${gear}`).set(json).send({ publicName: '' })).body.publicName).toBeNull();
+    expect(await names()).toBe('ชุดดำน้ำ');
+    expect((await owner.patch(`/v1/asset-types/${gear}`).set(json).send({ publicName: 'x'.repeat(61) })).status).toBe(400);
+  });
+});
+
 describe('ปฏิทิน', () => {
   it('วันที่ไม่มีจริง (30 ก.พ.) ตอบ 400 ไม่ใช่ 500', async () => {
     const r = await pub().get(`/v1/public/shops/${slug}/calendar?from=2027-02-30&count=3`);

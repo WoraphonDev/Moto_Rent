@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMe } from '@/components/shell';
+import { Segmented, Skeleton, useShowMore } from '@/components/motion';
 import { Empty, Notice, PageHeader, useLoad } from '@/components/ui';
 import { api } from '@/lib/api';
 import type { DueAsset, DueItem, MaintenanceKind, MaintenanceRecord, Urgency } from '@/lib/api-p2';
@@ -81,6 +82,8 @@ export default function MaintenancePage() {
   }, [records.data, month]);
 
   const history = (records.data ?? []).filter((r) => !historyAsset || r.assetId === historyAsset);
+  const dueMore = useShowMore(shown, 8);
+  const histMore = useShowMore(history, 5);
 
   return (
     <div className={styles.page}>
@@ -95,39 +98,103 @@ export default function MaintenancePage() {
       />
       <Notice notice={notice ?? (due.error ? { kind: 'danger', text: due.error } : null)} />
 
-      <div className={styles.chips} role="group" aria-label="กรองตามความเร่งด่วน">
-        {(
-          [
-            ['all', 'ทั้งหมด', assets.length],
-            ['overdue', 'ต้องทำเลย', counts.overdue],
-            ['soon', 'ใกล้ถึง', counts.soon],
-            ['ok', 'ปกติ', counts.ok],
-          ] as const
-        ).map(([k, label, n]) => (
-          <button key={k} type="button" className={styles.chip} data-tone={k} aria-pressed={filter === k} onClick={() => setFilter(k)}>
-            {label} <span className={styles.chipN}>{n}</span>
-          </button>
-        ))}
-      </div>
+      <div className="split">
+        <div className="split-main">
+          <section className="card" aria-label="รถและสิ่งที่ถึงกำหนด">
+            <div className={styles.toolbar}>
+              <Segmented<Urgency | 'all'>
+                label="กรองตามความเร่งด่วน"
+                value={filter}
+                onChange={setFilter}
+                options={[
+                  { value: 'all', label: 'ทั้งหมด', count: assets.length },
+                  { value: 'overdue', label: 'ต้องทำเลย', count: counts.overdue },
+                  { value: 'soon', label: 'ใกล้ถึง', count: counts.soon },
+                  { value: 'ok', label: 'ปกติ', count: counts.ok },
+                ]}
+              />
+            </div>
+            {!due.data && !due.error && (
+              <div className={styles.skel}>
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} h={52} />
+                ))}
+              </div>
+            )}
+            {due.data && shown.length === 0 && <Empty>ไม่มีรายการในกลุ่มนี้</Empty>}
+            <div className={`${styles.dueList} motion-list`} key={filter}>
+              {dueMore.visible.map((a) => (
+                <DueCard
+                  key={a.id}
+                  asset={a}
+                  canAdmin={canAdmin}
+                  onRecord={() => {
+                    setFormAsset(a.id);
+                    document.getElementById('record')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }}
+                  run={run}
+                />
+              ))}
+            </div>
+            {dueMore.more}
+          </section>
 
-      <div className={styles.cols}>
-        <section className={styles.dueList} aria-label="รถและสิ่งที่ถึงกำหนด">
-          {due.data && shown.length === 0 && <Empty>ไม่มีรายการในกลุ่มนี้</Empty>}
-          {shown.map((a) => (
-            <DueCard
-              key={a.id}
-              asset={a}
-              canAdmin={canAdmin}
-              onRecord={() => {
-                setFormAsset(a.id);
-                document.getElementById('record')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              run={run}
-            />
-          ))}
-        </section>
+          <section className="card">
+            <div className="card-head">
+              <h2>ประวัติงานซ่อม</h2>
+              <label className={styles.inlineField}>
+                <span className="muted">รถ</span>
+                <select className="input" value={historyAsset} onChange={(e) => setHistoryAsset(e.target.value)}>
+                  <option value="">ทุกคัน</option>
+                  {assets.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.code}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {history.length === 0 ? (
+              <Empty>ยังไม่มีประวัติ</Empty>
+            ) : (
+              <div className="scroll-x">
+                <table className="table table-stack">
+                  <thead>
+                    <tr>
+                      <th scope="col">วันที่</th>
+                      <th scope="col">รถ</th>
+                      <th scope="col">งาน</th>
+                      <th scope="col">ไมล์</th>
+                      <th scope="col">ค่าใช้จ่าย</th>
+                      <th scope="col">บันทึกโดย</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {histMore.visible.map((r) => (
+                      <tr key={r.id}>
+                        <td data-label="วันที่">{dateText(r.performedOn)}</td>
+                        <td data-label="รถ">
+                          <b>{r.code}</b>
+                        </td>
+                        <td data-label="งาน">
+                          <span className="badge badge-neutral">{KIND_LABEL[r.kind]}</span> {r.description}
+                        </td>
+                        <td data-label="ไมล์">{r.odometer?.toLocaleString() ?? '—'}</td>
+                        <td data-label="ค่าใช้จ่าย">{baht(r.cost)}</td>
+                        <td data-label="บันทึกโดย" className="muted">
+                          {r.by}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {histMore.more}
+          </section>
+        </div>
 
-        <aside className={styles.side}>
+        <aside className="split-side">
           <RecordForm assets={assets} assetId={formAsset} setAssetId={setFormAsset} today={due.data?.today ?? localToday()} run={run} />
 
           <section className="card">
@@ -152,59 +219,6 @@ export default function MaintenancePage() {
           </section>
         </aside>
       </div>
-
-      <section className="card">
-        <div className="card-head">
-          <h2>ประวัติงานซ่อม</h2>
-          <label className={styles.inlineField}>
-            <span className="muted">รถ</span>
-            <select className="input" value={historyAsset} onChange={(e) => setHistoryAsset(e.target.value)}>
-              <option value="">ทุกคัน</option>
-              {assets.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.code}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        {history.length === 0 ? (
-          <Empty>ยังไม่มีประวัติ</Empty>
-        ) : (
-          <div className="scroll-x">
-            <table className="table table-stack">
-              <thead>
-                <tr>
-                  <th scope="col">วันที่</th>
-                  <th scope="col">รถ</th>
-                  <th scope="col">งาน</th>
-                  <th scope="col">ไมล์</th>
-                  <th scope="col">ค่าใช้จ่าย</th>
-                  <th scope="col">บันทึกโดย</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((r) => (
-                  <tr key={r.id}>
-                    <td data-label="วันที่">{dateText(r.performedOn)}</td>
-                    <td data-label="รถ">
-                      <b>{r.code}</b>
-                    </td>
-                    <td data-label="งาน">
-                      <span className="badge badge-neutral">{KIND_LABEL[r.kind]}</span> {r.description}
-                    </td>
-                    <td data-label="ไมล์">{r.odometer?.toLocaleString() ?? '—'}</td>
-                    <td data-label="ค่าใช้จ่าย">{baht(r.cost)}</td>
-                    <td data-label="บันทึกโดย" className="muted">
-                      {r.by}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
     </div>
   );
 }
@@ -217,7 +231,7 @@ function DueCard({ asset: a, canAdmin, onRecord, run }: { asset: DueAsset; canAd
   const items = a.items.filter((i) => i.urgency !== 'ok');
 
   return (
-    <article className={`card ${styles.dueCard}`} data-urgency={a.urgency}>
+    <article className={styles.dueCard} data-urgency={a.urgency}>
       <div className={styles.dueHead}>
         <span className={styles.code} data-urgency={a.urgency}>
           {a.code}

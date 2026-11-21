@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { Segmented, Skeleton, useShowMore } from '@/components/motion';
 import { Empty, Notice, PageHeader, useLoad } from '@/components/ui';
 import { api, type BillSummary } from '@/lib/api';
 import { baht, dateTimeText, dateText } from '@/lib/format';
@@ -18,31 +19,44 @@ function localToday(): string {
 export default function BillsPage() {
   const [tab, setTab] = useState<Tab>('open');
   const list = useLoad(() => api.get<BillSummary[]>(`/v1/bills${tab === 'paid' ? '?status=paid' : ''}`).then((r) => r.data), [tab]);
-  const rows = list.data ?? [];
+  const [q, setQ] = useState('');
+  const all = list.data ?? [];
+  const needle = q.trim().toLowerCase();
+  const rows = needle
+    ? all.filter((b) => [b.customerName, b.hotelRoom, b.receiptNo].some((v) => v?.toLowerCase().includes(needle)))
+    : all;
+  const { visible, more } = useShowMore(rows, 20);
   const today = localToday();
-  const outstanding = rows.reduce((s, b) => s + (b.status === 'open' ? b.balance : 0), 0);
+  const outstanding = all.reduce((s, b) => s + (b.status === 'open' ? b.balance : 0), 0);
 
   return (
     <div className={styles.page}>
-      <PageHeader kicker={tab === 'open' ? `ค้างทั้งหมด ${baht(outstanding)} · ${rows.length} บิล` : 'จ่ายแล้วล่าสุด'} title="บิล" />
-      <div className={styles.tabs} role="tablist" aria-label="สถานะบิล">
-        {(
-          [
-            ['open', 'ค้างจ่าย'],
-            ['paid', 'จ่ายแล้ว'],
-          ] as const
-        ).map(([key, label]) => (
-          <button key={key} type="button" role="tab" aria-selected={tab === key} className={styles.tab} onClick={() => setTab(key)}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <PageHeader kicker={tab === 'open' ? `ค้างทั้งหมด ${baht(outstanding)} · ${all.length} บิล` : 'จ่ายแล้วล่าสุด'} title="บิล" />
       <Notice notice={list.error ? { kind: 'danger', text: list.error } : null} />
 
       <section className="card" aria-live="polite">
-        {list.data && rows.length === 0 && <Empty>{tab === 'open' ? 'ไม่มีบิลค้างจ่าย' : 'ยังไม่มีบิลที่จ่ายแล้ว'}</Empty>}
-        <ul className={styles.list}>
-          {rows.map((b) => {
+        <div className={styles.toolbar}>
+          <Segmented<Tab>
+            label="สถานะบิล"
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'open', label: 'ค้างจ่าย' },
+              { value: 'paid', label: 'จ่ายแล้ว' },
+            ]}
+          />
+          <input className={`input ${styles.search}`} type="search" placeholder="ค้นหาชื่อ ห้อง เลขใบเสร็จ" aria-label="ค้นหาบิล" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        {!list.data && !list.error && (
+          <div className={styles.skel}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} h={44} />
+            ))}
+          </div>
+        )}
+        {list.data && rows.length === 0 && <Empty>{needle ? 'ไม่พบบิลที่ค้นหา' : tab === 'open' ? 'ไม่มีบิลค้างจ่าย' : 'ยังไม่มีบิลที่จ่ายแล้ว'}</Empty>}
+        <ul className={`${styles.list} motion-list`} key={tab}>
+          {visible.map((b) => {
             const checkoutDue = b.status === 'open' && !!b.checkoutDate && b.checkoutDate <= today && b.balance > 0;
             return (
               <li key={b.id}>
@@ -73,6 +87,7 @@ export default function BillsPage() {
             );
           })}
         </ul>
+        {more}
       </section>
     </div>
   );

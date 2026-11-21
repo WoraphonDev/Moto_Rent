@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useMe } from '@/components/shell';
+import { AssetPopup } from '@/components/asset-popup';
+import { CountUp, Skeleton } from '@/components/motion';
 import { Empty, Notice, useLoad } from '@/components/ui';
 import { api, type Asset, type AssetState, type RentalSummary, type Today } from '@/lib/api';
 import { baht, dueText, METHOD_LABEL, overdueText, STATE_LABEL, timeText } from '@/lib/format';
@@ -42,6 +44,7 @@ export default function HomePage() {
   const fleet = useLoad(() => api.get<Asset[]>('/v1/assets').then((r) => r.data));
   const active = useLoad(() => api.get<RentalSummary[]>('/v1/rentals?status=active').then((r) => r.data));
   const [now, setNow] = useState(() => Date.now());
+  const [openAsset, setOpenAsset] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -58,18 +61,19 @@ export default function HomePage() {
   const dateLabel = new Date().toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const moneyTotal = (t?.moneyToday ?? []).reduce((s, m) => s + m.total, 0);
 
-  const tiles: Array<{ key: Focus; label: string; n: string; sub: string; bg: string; ink: string }> = [
-    { key: 'overdue', label: 'เลยกำหนดคืน', n: String(t?.overdue.length ?? '–'), sub: 'ทักลูกค้าก่อน', bg: 'var(--danger-soft)', ink: 'var(--danger-text)' },
+  const tiles: Array<{ key: Focus; label: string; n: number | null; money?: boolean; sub: string; bg: string; ink: string }> = [
+    { key: 'overdue', label: 'เลยกำหนดคืน', n: t ? t.overdue.length : null, sub: 'ทักลูกค้าก่อน', bg: 'var(--danger-soft)', ink: 'var(--danger-text)' },
     {
       key: 'unpaid',
       label: 'เช็คเอาท์ค้างจ่าย',
-      n: t ? baht(t.unpaidCheckouts.reduce((s, u) => s + u.balance, 0)) : '–',
+      n: t ? t.unpaidCheckouts.reduce((s, u) => s + u.balance, 0) : null,
+      money: true,
       sub: `${t?.unpaidCheckouts.length ?? 0} ราย · เก็บก่อนขึ้นเรือ`,
       bg: 'var(--warn-soft)',
       ink: 'var(--warn-text)',
     },
-    { key: 'due', label: 'คืนวันนี้', n: String(t?.dueToday.length ?? '–'), sub: 'ยังไม่ถึงเวลา', bg: 'var(--info-soft)', ink: 'var(--info-text)' },
-    { key: 'active', label: 'เช่าอยู่ทั้งหมด', n: String(t?.activeCount ?? '–'), sub: 'สัญญาที่ยังไม่คืน', bg: 'var(--ok-soft)', ink: 'var(--ok-text)' },
+    { key: 'due', label: 'คืนวันนี้', n: t ? t.dueToday.length : null, sub: 'ยังไม่ถึงเวลา', bg: 'var(--info-soft)', ink: 'var(--info-text)' },
+    { key: 'active', label: 'เช่าอยู่ทั้งหมด', n: t ? t.activeCount : null, sub: 'สัญญาที่ยังไม่คืน', bg: 'var(--ok-soft)', ink: 'var(--ok-text)' },
   ];
 
   return (
@@ -95,12 +99,12 @@ export default function HomePage() {
 
       <NowCard today={t} now={now} />
 
-      <section className={styles.tiles} aria-label="ตัวเลขวันนี้">
+      <section className="kpis" aria-label="ตัวเลขวันนี้">
         {tiles.map((x) => (
           <button
             key={x.key}
             type="button"
-            className={styles.tile}
+            className={`${styles.tile} motion-lift`}
             style={{ background: x.bg }}
             aria-pressed={focus === x.key}
             onClick={() => setFocus(x.key)}
@@ -108,7 +112,7 @@ export default function HomePage() {
             <span className={styles.tileLabel} style={{ color: x.ink }}>
               {x.label}
             </span>
-            <span className={styles.tileNum}>{x.n}</span>
+            <span className={styles.tileNum}>{x.n === null ? '–' : <CountUp value={x.n} format={x.money ? baht : undefined} />}</span>
             <span className={styles.tileSub} style={{ color: x.ink }}>
               {x.sub}
             </span>
@@ -122,6 +126,7 @@ export default function HomePage() {
             <h2>{tiles.find((x) => x.key === focus)!.label}</h2>
           </div>
           <FocusList focus={focus} today={t} active={active.data} now={now} />
+          <div className="card-foot" />
         </section>
 
         <aside className={styles.side}>
@@ -136,7 +141,7 @@ export default function HomePage() {
               {assets.length === 0 ? (
                 <Empty>ยังไม่มีรถ · เพิ่มได้ที่ “รถและของ”</Empty>
               ) : (
-                <div className={styles.board}>
+                <div className={`${styles.board} motion-list`}>
                   {assets.map((a) => {
                     const inner = (
                       <>
@@ -145,14 +150,10 @@ export default function HomePage() {
                       </>
                     );
                     const style = { background: TILE_BG[a.state], color: TILE_INK[a.state] };
-                    return a.rentalId ? (
-                      <Link key={a.id} href={`/rentals/${a.rentalId}`} className={styles.vt} style={style} title={`${a.code} · ${STATE_LABEL[a.state]}`}>
+                    return (
+                      <button key={a.id} type="button" className={`${styles.vt} motion-lift`} style={style} title={`${a.code} · ${STATE_LABEL[a.state]}`} onClick={() => setOpenAsset(a.id)}>
                         {inner}
-                      </Link>
-                    ) : (
-                      <span key={a.id} className={styles.vt} style={style} title={`${a.code} · ${STATE_LABEL[a.state]}`}>
-                        {inner}
-                      </span>
+                      </button>
                     );
                   })}
                 </div>
@@ -190,6 +191,7 @@ export default function HomePage() {
           </section>
         </aside>
       </div>
+      <AssetPopup assetId={openAsset} ids={assets.map((a) => a.id)} onNavigate={setOpenAsset} onClose={() => setOpenAsset(null)} />
     </div>
   );
 }
@@ -247,12 +249,19 @@ function NowCard({ today, now }: { today: Today | null; now: number }) {
 }
 
 function FocusList({ focus, today, active, now }: { focus: Focus; today: Today | null; active: RentalSummary[] | null; now: number }) {
-  if (!today) return <Empty>กำลังโหลด…</Empty>;
+  if (!today)
+    return (
+      <div className="card-body" style={{ gap: 10, display: 'flex', flexDirection: 'column' }}>
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} h={44} />
+        ))}
+      </div>
+    );
   if (focus === 'unpaid') {
     if (!today.unpaidCheckouts.length) return <Empty>ไม่มีบิลเช็คเอาท์ค้างจ่าย</Empty>;
     return (
-      <ul className={styles.rows}>
-        {today.unpaidCheckouts.map((u) => (
+      <ul className={`${styles.rows} motion-list`}>
+        {today.unpaidCheckouts.slice(0, LIMIT).map((u) => (
           <li key={u.billId}>
             <Link href={`/bills/${u.billId}`} className={styles.row}>
               <span className={styles.bar} style={{ background: 'var(--accent)' }} />
@@ -264,6 +273,7 @@ function FocusList({ focus, today, active, now }: { focus: Focus; today: Today |
             </Link>
           </li>
         ))}
+        {today.unpaidCheckouts.length > LIMIT && <MoreLink href="/bills" n={today.unpaidCheckouts.length} />}
       </ul>
     );
   }
@@ -275,8 +285,8 @@ function FocusList({ focus, today, active, now }: { focus: Focus; today: Today |
         : (active ?? []).map((r) => ({ id: r.id, dueAt: r.dueAt, customerId: r.customerId, customerName: r.customerName, hotelRoom: r.hotelRoom, phone: r.phone, items: r.items }));
   if (!list.length) return <Empty>{focus === 'overdue' ? 'ไม่มีรถเลยกำหนด' : focus === 'due' ? 'ไม่มีรถครบคืนที่เหลือวันนี้' : 'ไม่มีสัญญาที่เช่าอยู่'}</Empty>;
   return (
-    <ul className={styles.rows}>
-      {list.map((r) => {
+    <ul className={`${styles.rows} motion-list`}>
+      {list.slice(0, LIMIT).map((r) => {
         const late = new Date(r.dueAt).getTime() < now;
         // /v1/today ส่งป้ายเป็นข้อความ · /v1/rentals ส่งเป็นรายการของ
         const items = (r.items as Array<string | RentalSummary['items'][number]>)
@@ -298,6 +308,19 @@ function FocusList({ focus, today, active, now }: { focus: Focus; today: Today |
           </li>
         );
       })}
+      {list.length > LIMIT && <MoreLink href="/rentals" n={list.length} />}
     </ul>
+  );
+}
+
+/** หน้าหลักแสดงไม่เกิน 6 แถว (การ์ดสองฝั่งสูงพอๆ กัน) · ที่เหลือไปดูหน้ารายการ */
+const LIMIT = 6;
+function MoreLink({ href, n }: { href: string; n: number }) {
+  return (
+    <li>
+      <Link href={href} className={styles.moreLink}>
+        ดูทั้งหมด {n} รายการ →
+      </Link>
+    </li>
   );
 }

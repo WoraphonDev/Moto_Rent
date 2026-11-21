@@ -89,7 +89,7 @@ export interface PublicShop {
   timezone: string;
   currency: string;
   maxRentalDays: number | null;
-  types: Array<{ id: string; name: string; tracking: 'unit' | 'quantity'; pricePerDay: number; deposit: number | null; variants: Array<{ id: string; label: string }> }>;
+  types: Array<{ id: string; name: string; tracking: 'unit' | 'quantity'; pricePerDay: number; deposit: number | null; variants: Array<{ id: string; label: string }>; hasCover?: boolean; coverUrl?: string | null }>;
 }
 
 export interface PublicAvailability {

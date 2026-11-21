@@ -7,6 +7,7 @@ import { audit } from '../common/audit.js';
 import { AppError, pgError } from '../common/http.js';
 import { DB, VALKEY } from '../infra.js';
 import type { Role } from './context.js';
+import { TotpService, type TotpInput } from './totp.service.js';
 import { approvalCode, hashPassword, newToken, tokenHash, verifyPassword } from './crypto.js';
 
 export interface OrgChoice {
@@ -18,7 +19,8 @@ export interface OrgChoice {
 export type LoginResult =
   | { status: 'ok'; sessionToken: string; expiresAt: Date; orgId: string; userId: string; role: Role }
   | { status: 'choose_org'; orgs: OrgChoice[] }
-  | { status: 'device_pending'; deviceId: string; approvalCode: string; pendingToken: string; expiresInSeconds: number };
+  | { status: 'device_pending'; deviceId: string; approvalCode: string; pendingToken: string; expiresInSeconds: number }
+  | { status: 'totp_required'; pendingToken: string; expiresInSeconds: number };
 
 export interface LoginInput {
   identifier: string;
@@ -32,12 +34,15 @@ export interface LoginInput {
 
 const PENDING_TTL_SECONDS = 600;
 
+type OwnerDeviceMode = 'request' | 'totp' | 'refuse' | 'self_approve';
+
 @Injectable()
 export class AuthService {
   constructor(
     @Inject(DB) private readonly db: Db,
     @Inject(VALKEY) private readonly valkey: Redis,
     @Inject(CONFIG) private readonly config: Config,
+    private readonly totp: TotpService,
   ) {}
 
   /** ตรวจรหัส → เลือกร้าน → ตรวจเครื่อง → ออก session */
@@ -76,12 +81,20 @@ export class AuthService {
     const userId = u.user_id;
     const orgId = chosen.orgId;
     const role = chosen.role;
+    // เจ้าของร้านเข้าจากเครื่องใหม่: เปิด 2 ชั้นแล้ว → ต้องใส่รหัส 6 หลัก · ยังไม่เปิด → ไม่ให้เพิ่มเครื่อง (ถ้าบังคับ)
+    const ownerTotp = role === 'owner' ? !!(await this.totp.state(userId))?.enabled : false;
+    const ownerMode: OwnerDeviceMode = role !== 'owner' ? 'request' : ownerTotp ? 'totp' : this.config.OWNER_TOTP_REQUIRED ? 'refuse' : 'self_approve';
     const secret = input.deviceSecret ?? newDeviceSecret();
     const device = await withTenant(this.db, { userId, orgId }, (tx) =>
-      this.resolveDevice(tx, { userId, orgId, role, ip: input.ip }, secret, input.deviceName, input.userAgent),
+      this.resolveDevice(tx, { userId, orgId, role, ip: input.ip }, secret, input.deviceName, input.userAgent, ownerMode),
     );
 
     if (device.status === 'revoked') throw new AppError(HttpStatus.FORBIDDEN, 'device_revoked');
+    if (device.status === 'pending' && ownerMode === 'totp') {
+      const pendingToken = newToken();
+      await this.valkey.set(`totp:${tokenHash(pendingToken)}`, JSON.stringify({ userId, orgId, deviceId: device.id }), 'EX', PENDING_TTL_SECONDS);
+      return { status: 'totp_required', pendingToken, expiresInSeconds: PENDING_TTL_SECONDS };
+    }
     if (device.status === 'pending') {
       const pendingToken = newToken();
       await this.valkey.set(
@@ -125,6 +138,33 @@ export class AuthService {
     return this.startSession(p.userId, p.orgId, state.member.role as Role, p.deviceId, ip);
   }
 
+  /** เจ้าของร้านใส่รหัส 6 หลัก/รหัสสำรอง หลังรหัสผ่านถูกบนเครื่องใหม่ → อนุมัติเครื่องนี้ + เข้าระบบ */
+  async loginTotp(pendingToken: string, input: TotpInput, ip: string | null): Promise<LoginResult | { status: 'expired' }> {
+    const key = `totp:${tokenHash(pendingToken)}`;
+    const raw = await this.valkey.get(key);
+    if (!raw) return { status: 'expired' };
+    const p = JSON.parse(raw) as { userId: string; orgId: string; deviceId: string };
+    await this.totp.verifyLogin(p.userId, input);
+    // ใช้ตั๋วได้ครั้งเดียว
+    if ((await this.valkey.del(key)) === 0) return { status: 'expired' };
+    const role = await withTenant(this.db, { userId: p.userId, orgId: p.orgId }, async (tx) => {
+      const [m] = await tx
+        .select({ role: memberships.role, status: memberships.status })
+        .from(memberships)
+        .where(and(eq(memberships.orgId, p.orgId), eq(memberships.userId, p.userId)));
+      if (!m || m.status !== 'active' || m.role !== 'owner') throw new AppError(HttpStatus.FORBIDDEN, 'not_a_member');
+      const [d] = await tx
+        .update(devices)
+        .set({ status: 'approved', approvedBy: p.userId, approvedAt: new Date() })
+        .where(and(eq(devices.id, p.deviceId), eq(devices.status, 'pending')))
+        .returning({ id: devices.id });
+      if (!d) throw new AppError(HttpStatus.FORBIDDEN, 'device_revoked');
+      await audit(tx, { userId: p.userId, orgId: p.orgId, deviceId: p.deviceId, ip }, { action: 'device.owner_approved_totp', entityType: 'device', entityId: p.deviceId });
+      return m.role as Role;
+    });
+    return this.startSession(p.userId, p.orgId, role, p.deviceId, ip, true);
+  }
+
   /** สมัครร้านใหม่: ร้าน + สาขาแรก + เจ้าของ + เครื่องนี้ (อนุมัติแล้ว) + session */
   async signup(
     input: { slug: string; shopName: string; username: string; displayName: string; phone?: string; password: string },
@@ -148,7 +188,8 @@ export class AuthService {
       throw e;
     }
     const ctx = { userId: ids.user_id, orgId: ids.org_id, role: 'owner' as const, ip: meta.ip };
-    const device = await withTenant(this.db, ctx, (tx) => this.resolveDevice(tx, ctx, deviceSecret, 'เครื่องเจ้าของ', meta.userAgent));
+    // เครื่องแรกของร้านใหม่ อนุมัติให้เลย (ยังไม่มีใครอนุมัติแทน)
+    const device = await withTenant(this.db, ctx, (tx) => this.resolveDevice(tx, ctx, deviceSecret, 'เครื่องเจ้าของ', meta.userAgent, 'self_approve'));
     return this.startSession(ids.user_id, ids.org_id, 'owner', device.id, meta.ip);
   }
 
@@ -186,8 +227,10 @@ export class AuthService {
 
   /**
    * หาเครื่องจาก secret · ไม่เคยเห็น = ขออนุมัติใหม่
-   * เจ้าของร้านอนุมัติเครื่องตัวเองได้ทันที (ร้านเล็กมีเจ้าของคนเดียว ไม่มีใครอนุมัติแทน) แต่บันทึกเป็นรายการเสี่ยงให้เห็นในประวัติ
-   * TODO(เฟส 0.2): เจ้าของต้องยืนยัน 2 ชั้นก่อนอนุมัติเครื่องตัวเอง
+   * เจ้าของร้าน (ownerMode):
+   * - totp: สร้างเป็นรออนุมัติ แล้วให้ใส่รหัส 6 หลักเพื่ออนุมัติเอง
+   * - refuse: ยังไม่เปิด 2 ชั้น → ไม่ให้เพิ่มเครื่อง (ถ้ารหัสผ่านหลุด คนอื่นจะอนุมัติเครื่องตัวเองไม่ได้)
+   * - self_approve: เครื่องแรกตอนสมัครร้าน (หรือปิดการบังคับไว้) · บันทึกเป็นรายการเสี่ยง
    */
   private async resolveDevice(
     tx: Tx,
@@ -195,6 +238,7 @@ export class AuthService {
     secret: string,
     name: string | undefined,
     userAgent: string | undefined,
+    ownerMode: OwnerDeviceMode = 'request',
   ) {
     const secretHash = tokenHash(secret);
     const [existing] = await tx
@@ -202,6 +246,7 @@ export class AuthService {
       .from(devices)
       .where(and(eq(devices.orgId, ctx.orgId), eq(devices.secretHash, secretHash)));
     if (existing) return existing;
+    if (ownerMode === 'refuse') throw new AppError(HttpStatus.FORBIDDEN, 'totp_setup_required');
 
     const code = approvalCode();
     const [created] = await tx
@@ -216,7 +261,7 @@ export class AuthService {
       })
       .returning({ id: devices.id, status: devices.status, approvalCode: devices.approvalCode });
     const auth = { ...ctx, deviceId: created!.id };
-    if (ctx.role === 'owner') {
+    if (ownerMode === 'self_approve') {
       await tx
         .update(devices)
         .set({ status: 'approved', approvedBy: ctx.userId, approvedAt: new Date() })
@@ -228,13 +273,13 @@ export class AuthService {
     return created!;
   }
 
-  private async startSession(userId: string, orgId: string, role: Role, deviceId: string, ip: string | null): Promise<LoginResult> {
+  private async startSession(userId: string, orgId: string, role: Role, deviceId: string, ip: string | null, totpVerified = false): Promise<LoginResult> {
     const token = newToken();
     const expiresAt = new Date(Date.now() + this.config.SESSION_TTL_HOURS * 3_600_000);
     await withTenant(this.db, { userId, orgId }, async (tx) => {
       const [s] = await tx
         .insert(sessions)
-        .values({ tokenHash: tokenHash(token), userId, orgId, deviceId, ip, expiresAt })
+        .values({ tokenHash: tokenHash(token), userId, orgId, deviceId, ip, expiresAt, totpVerifiedAt: totpVerified ? new Date() : null })
         .returning({ id: sessions.id });
       await audit(tx, { userId, orgId, deviceId, ip }, { action: 'auth.login', entityType: 'session', entityId: s!.id });
     });
