@@ -11,7 +11,8 @@ VPS_KEY="${VPS_KEY:-$HOME/.ssh/friday_vps}"
 APP_HOST="${APP_HOST:-rent.45-141-26-85.sslip.io}"
 APP_DIR=/opt/moto
 FRIDAY_DIR=/opt/friday
-TAG="$(git rev-parse --short HEAD)"
+# tag ตามโค้ดของแอป (apps/packages/Dockerfile) · แก้แค่สคริปต์ deploy ไม่ต้อง build/ส่ง image ใหม่
+TAG="$(git rev-parse HEAD:apps HEAD:packages HEAD:infra/docker HEAD:pnpm-lock.yaml | shasum | cut -c1-10)"
 SSH=(ssh -i "$VPS_KEY" -o IdentitiesOnly=yes -o BatchMode=yes "$VPS_HOST")
 
 if [ -n "$(git status --porcelain)" ]; then
@@ -19,12 +20,15 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
-echo "== build image linux/amd64 (TAG=$TAG)"
-docker buildx build --platform linux/amd64 -f infra/docker/api.Dockerfile -t "moto-api:$TAG" --load .
-docker buildx build --platform linux/amd64 -f infra/docker/web.Dockerfile -t "moto-web:$TAG" --load .
-
-echo "== ส่ง image ขึ้นเครื่อง"
-docker save "moto-api:$TAG" "moto-web:$TAG" | gzip -1 | "${SSH[@]}" 'gunzip | docker load'
+if "${SSH[@]}" "docker image inspect moto-api:$TAG moto-web:$TAG" >/dev/null 2>&1; then
+  echo "== image $TAG มีบนเครื่องแล้ว · ข้าม build/ส่ง"
+else
+  echo "== build image linux/amd64 (TAG=$TAG)"
+  docker buildx build --platform linux/amd64 -f infra/docker/api.Dockerfile -t "moto-api:$TAG" --load .
+  docker buildx build --platform linux/amd64 -f infra/docker/web.Dockerfile -t "moto-web:$TAG" --load .
+  echo "== ส่ง image ขึ้นเครื่อง"
+  docker save "moto-api:$TAG" "moto-web:$TAG" | gzip -1 | "${SSH[@]}" 'gunzip | docker load'
+fi
 
 echo "== ส่งไฟล์ตั้งค่า"
 "${SSH[@]}" "mkdir -p $APP_DIR/backups && chmod 700 $APP_DIR $APP_DIR/backups"
@@ -58,12 +62,17 @@ else
 fi
 docker network inspect friday_default >/dev/null
 docker compose up -d postgres valkey
-docker compose run --rm migrate
+# -T และ </dev/null: สคริปต์นี้มาทาง stdin ของ ssh · compose run ที่อ่าน stdin จะกินคำสั่งที่เหลือทั้งหมด
+docker compose run -T --rm migrate </dev/null
 # volume รูป (ใช้ตอนยังไม่มี R2) ให้ผู้ใช้ node ใน container เขียนได้
-docker compose run --rm --no-deps --user 0 --entrypoint sh api -c 'chown node:node /data/uploads' >/dev/null
+docker compose run -T --rm --no-deps --user 0 --entrypoint sh api -c 'chown node:node /data/uploads' </dev/null >/dev/null
 docker compose up -d --remove-orphans api web
-for i in $(seq 1 30); do
-  bad="$(docker compose ps --format '{{.Service}} {{.Health}}' | awk '$2!="healthy" && $1!="migrate"{print $1}')"
+for i in $(seq 1 40); do
+  bad=""
+  for svc in postgres valkey api web; do
+    st="$(docker inspect -f '{{.State.Health.Status}}' "moto-$svc-1" 2>/dev/null || echo missing)"
+    [ "$st" = healthy ] || bad="$bad $svc:$st"
+  done
   [ -z "$bad" ] && break
   sleep 3
 done
