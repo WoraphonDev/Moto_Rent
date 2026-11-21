@@ -1,7 +1,10 @@
+import { resolve } from 'node:path';
 import type { NextConfig } from 'next';
 
 const config: NextConfig = {
   output: 'standalone',
+  // monorepo: ให้ standalone เก็บไฟล์จากรากของ repo (lockfile/node_modules อยู่ที่ราก)
+  outputFileTracingRoot: resolve(process.cwd(), '../..'),
   poweredByHeader: false,
   // ตอนพัฒนา: /api/* → API (production ใช้ Caddy ส่งตรงไป API ไม่ผ่าน Next)
   async rewrites() {

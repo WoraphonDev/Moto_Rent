@@ -1,0 +1,107 @@
+# ช่วงทดลอง: ระบบร้านเช่าบน VPS เครื่องเดียวกับ Friday (RAM 2 GB) · project แยก (moto) ไม่ยุ่งกับ container ของ Friday
+# HTTPS: ใช้ Caddy ของ Friday ที่ถือพอร์ต 80/443 อยู่แล้ว · Caddy เห็น web/api ของเราผ่าน network friday_default
+#   (alias moto-web / moto-api กันชื่อชนกับ web/api ของ Friday) · Postgres/Valkey อยู่ใน network ภายในของเราเท่านั้น
+# ย้ายไปเครื่องของตัวเองทีหลัง: ใช้ infra/prod/compose.yml (มี Caddy + load balancer ของตัวเอง)
+name: moto
+
+x-node: &node
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  # migration + สร้าง/อัปเดต role ของ API · ใช้บัญชี rental_owner (ไม่ใช่ superuser) เฉพาะ job นี้
+  migrate:
+    image: moto-api:${TAG:-latest}
+    command: ["sh", "-c", "node /app/packages/db/scripts/migrate.ts && node /app/packages/db/scripts/dev-roles.ts"]
+    environment:
+      DATABASE_OWNER_URL: postgres://rental_owner:${RENTAL_OWNER_PASSWORD}@postgres:5432/rental
+      RENTAL_API_DB_PASSWORD: ${RENTAL_API_DB_PASSWORD}
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+    networks: [internal]
+
+  api:
+    <<: *node
+    image: moto-api:${TAG:-latest}
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=192
+      # บัญชี rental_api เท่านั้น (อยู่ใต้ RLS)
+      DATABASE_APP_URL: postgres://rental_api:${RENTAL_API_DB_PASSWORD}@postgres:5432/rental
+      VALKEY_URL: redis://:${VALKEY_PASSWORD}@valkey:6379
+      WEB_ORIGIN: https://${APP_HOST}
+      COOKIE_SECURE: "true"
+      S3_BUCKET: ${S3_BUCKET:?ตั้ง S3_* ก่อน (set-r2.sh)}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_REGION: ${S3_REGION:-auto}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      TOTP_ENC_KEY: ${TOTP_ENC_KEY:?TOTP_ENC_KEY is required}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      valkey: { condition: service_healthy }
+    mem_limit: 256m
+    networks:
+      internal: {}
+      edge:
+        aliases: [moto-api]
+
+  web:
+    <<: *node
+    image: moto-web:${TAG:-latest}
+    environment:
+      NODE_OPTIONS: --max-old-space-size=160
+    mem_limit: 224m
+    networks:
+      edge:
+        aliases: [moto-web]
+
+  postgres:
+    <<: *node
+    image: postgres:18-alpine
+    # ตั้งให้กินหน่วยความจำน้อย (เครื่อง 2 GB ใช้ร่วมกับ Friday)
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=40", "-c", "work_mem=4MB", "-c", "maintenance_work_mem=32MB", "-c", "effective_cache_size=192MB"]
+    environment:
+      # superuser ใช้ตั้งเครื่อง/สำรองข้อมูลเท่านั้น · ไม่ส่งให้ service อื่น
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
+      POSTGRES_DB: rental
+      RENTAL_OWNER_PASSWORD: ${RENTAL_OWNER_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rental"]
+      interval: 5s
+      retries: 20
+    mem_limit: 256m
+    networks: [internal]
+
+  valkey:
+    <<: *node
+    image: valkey/valkey:9.0-alpine
+    command: ["sh", "-c", "exec valkey-server --appendonly yes --maxmemory 48mb --maxmemory-policy noeviction --requirepass \"$$VALKEY_PASSWORD\""]
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD}
+    volumes:
+      - valkeydata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a \"$$VALKEY_PASSWORD\" --no-auth-warning ping"]
+      interval: 5s
+      retries: 20
+    mem_limit: 80m
+    networks: [internal]
+
+networks:
+  internal: {}
+  # network ของ Friday (Caddy อยู่ในนี้) · สร้างโดย project friday
+  edge:
+    external: true
+    name: friday_default
+
+volumes:
+  pgdata:
+  valkeydata:
