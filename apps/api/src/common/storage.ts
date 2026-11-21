@@ -77,7 +77,9 @@ export function createStorage(c: Config): Storage {
     return new S3Storage(client, c.S3_BUCKET);
   }
   if (process.env.NODE_ENV === 'production') {
-    throw new Error('S3_BUCKET is required in production (files must be shared by every server)');
+    if (!c.ALLOW_LOCAL_STORAGE) throw new Error('S3_BUCKET is required in production (files must be shared by every server)');
+    // ช่วงทดลองบน VPS เครื่องเดียว (ตั้งใจเปิดเอง) · เตือนทุกครั้งที่เริ่ม
+    console.warn(`[storage] production is using LOCAL disk at ${c.STORAGE_DIR} (ALLOW_LOCAL_STORAGE=true) · single API instance only, move to S3/R2 before scaling`);
   }
   return new LocalStorage(c.STORAGE_DIR);
 }

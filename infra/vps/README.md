@@ -5,6 +5,10 @@
 - web/api เข้า network `friday_default` ด้วยชื่อ `moto-web` / `moto-api` · Postgres/Valkey อยู่ใน network ภายในเท่านั้น
 - จำกัดหน่วยความจำทุก service (เครื่อง 2 GB ใช้ร่วมกับ Friday)
 
+## ยังไม่มี R2 (ช่วงทดลอง)
+deploy ได้เลย · รูปเก็บบนดิสก์ของ VPS (volume `moto_uploads`) และสำรองทุกคืนใน `backups/uploads-*.tar.gz`
+ข้อจำกัด: API ได้ตัวเดียว · เครื่องเสีย = ต้องกู้จาก backup · ตั้ง R2 แล้วต้องย้ายไฟล์ขึ้น bucket ก่อนเปิดใช้
+
 ## ครั้งแรก
 1. สร้าง Cloudflare R2 bucket + API token (Object Read & Write เฉพาะ bucket นั้น)
 2. `infra/vps/deploy.sh` (ส่ง image + สุ่มรหัสใน `.env` บนเครื่อง · หยุดรอ R2)

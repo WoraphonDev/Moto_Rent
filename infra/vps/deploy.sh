@@ -46,13 +46,19 @@ put RENTAL_API_DB_PASSWORD "$(rnd)"
 put VALKEY_PASSWORD "$(rnd)"
 put TOTP_ENC_KEY "$(openssl rand -base64 32)"
 sed -i "s/^TAG=.*//" .env && echo "TAG=$TAG" >> .env && sed -i '/^$/d' .env
-if ! grep -q '^S3_BUCKET=.' .env; then
-  echo "ยังไม่ได้ตั้งที่เก็บรูป (Cloudflare R2) · รัน: ssh -t <vps> $APP_DIR/set-r2.sh แล้ว deploy อีกครั้ง" >&2
-  exit 3
+sed -i '/^ALLOW_LOCAL_STORAGE=/d' .env
+if grep -q '^S3_BUCKET=.' .env; then
+  echo "ALLOW_LOCAL_STORAGE=false" >> .env
+else
+  # ช่วงทดลอง: ยังไม่มี R2 → เก็บรูปบนดิสก์ของเครื่อง (สำรองทุกคืนใน backup.sh) · ตั้ง R2 ทีหลังด้วย set-r2.sh
+  echo "ALLOW_LOCAL_STORAGE=true" >> .env
+  echo "คำเตือน: ยังไม่ได้ตั้ง R2 · เก็บรูปบนดิสก์ของ VPS ชั่วคราว (ssh -t <vps> $APP_DIR/set-r2.sh เมื่อพร้อม)" >&2
 fi
 docker network inspect friday_default >/dev/null
 docker compose up -d postgres valkey
 docker compose run --rm migrate
+# volume รูป (ใช้ตอนยังไม่มี R2) ให้ผู้ใช้ node ใน container เขียนได้
+docker compose run --rm --no-deps --user 0 --entrypoint sh api -c 'chown node:node /data/uploads' >/dev/null
 docker compose up -d --remove-orphans api web
 for i in $(seq 1 30); do
   bad="$(docker compose ps --format '{{.Service}} {{.Health}}' | awk '$2!="healthy" && $1!="migrate"{print $1}')"

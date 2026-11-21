@@ -20,6 +20,14 @@ const schema = z.object({
   /** หน้าจองสาธารณะของร้าน (เฟส 3) · ค่าเริ่มต้น = WEB_ORIGIN */
   BOOKING_ORIGIN: z.string().url().optional(),
   STORAGE_DIR: z.string().default('.data/uploads'),
+  /**
+   * ช่วงทดลองบนเครื่องเดียว: ยอมให้ production เก็บไฟล์ลงดิสก์ (STORAGE_DIR) แทน S3/R2
+   * ใช้ได้เฉพาะตอนมี API ตัวเดียว · ตั้ง R2 แล้วต้องปิดและย้ายไฟล์ขึ้น bucket
+   */
+  ALLOW_LOCAL_STORAGE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   S3_BUCKET: z.string().optional(),
   S3_REGION: z.string().default('auto'),
   S3_ENDPOINT: z.string().url().optional(),
@@ -38,7 +46,9 @@ const schema = z.object({
 export type Config = z.infer<typeof schema>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const parsed = schema.safeParse(env);
+  // ค่าว่าง = ไม่ได้ตั้ง (compose ส่ง "" ให้ตัวแปรที่ไม่มีใน .env เช่น S3_ENDPOINT)
+  const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== ''));
+  const parsed = schema.safeParse(cleaned);
   if (!parsed.success) {
     throw new Error(`invalid environment: ${parsed.error.issues.map((i) => i.path.join('.')).join(', ')}`);
   }
