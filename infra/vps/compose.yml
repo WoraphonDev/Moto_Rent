@@ -1,4 +1,6 @@
 # ช่วงทดลอง: ระบบร้านเช่าบน VPS เครื่องเดียวกับ Friday (RAM 2 GB) · project แยก (moto) ไม่ยุ่งกับ container ของ Friday
+# สำคัญ: api อยู่ทั้ง network ของเราและของ Friday · ชื่อ postgres/valkey ซ้ำกับของ Friday
+#   จึงต้องเรียกด้วย alias ที่ไม่ซ้ำเสมอ (moto-postgres / moto-valkey) ไม่งั้นจะไปต่อของ Friday
 # HTTPS: ใช้ Caddy ของ Friday ที่ถือพอร์ต 80/443 อยู่แล้ว · Caddy เห็น web/api ของเราผ่าน network friday_default
 #   (alias moto-web / moto-api กันชื่อชนกับ web/api ของ Friday) · Postgres/Valkey อยู่ใน network ภายในของเราเท่านั้น
 # ย้ายไปเครื่องของตัวเองทีหลัง: ใช้ infra/prod/compose.yml (มี Caddy + load balancer ของตัวเอง)
@@ -16,7 +18,7 @@ services:
     image: moto-api:${TAG:-latest}
     command: ["sh", "-c", "node /app/packages/db/scripts/migrate.ts && node /app/packages/db/scripts/dev-roles.ts"]
     environment:
-      DATABASE_OWNER_URL: postgres://rental_owner:${RENTAL_OWNER_PASSWORD}@postgres:5432/rental
+      DATABASE_OWNER_URL: postgres://rental_owner:${RENTAL_OWNER_PASSWORD}@moto-postgres:5432/rental
       RENTAL_API_DB_PASSWORD: ${RENTAL_API_DB_PASSWORD}
     depends_on:
       postgres: { condition: service_healthy }
@@ -30,8 +32,8 @@ services:
       NODE_ENV: production
       NODE_OPTIONS: --max-old-space-size=192
       # บัญชี rental_api เท่านั้น (อยู่ใต้ RLS)
-      DATABASE_APP_URL: postgres://rental_api:${RENTAL_API_DB_PASSWORD}@postgres:5432/rental
-      VALKEY_URL: redis://:${VALKEY_PASSWORD}@valkey:6379
+      DATABASE_APP_URL: postgres://rental_api:${RENTAL_API_DB_PASSWORD}@moto-postgres:5432/rental
+      VALKEY_URL: redis://:${VALKEY_PASSWORD}@moto-valkey:6379
       WEB_ORIGIN: https://${APP_HOST}
       COOKIE_SECURE: "true"
       # ยังไม่ตั้ง R2: เก็บไฟล์ลงดิสก์ของเครื่อง (volume uploads) ชั่วคราว · deploy.sh ตั้ง ALLOW_LOCAL_STORAGE ให้
@@ -83,7 +85,9 @@ services:
       interval: 5s
       retries: 20
     mem_limit: 256m
-    networks: [internal]
+    networks:
+      internal:
+        aliases: [moto-postgres]
 
   valkey:
     <<: *node
@@ -98,7 +102,9 @@ services:
       interval: 5s
       retries: 20
     mem_limit: 80m
-    networks: [internal]
+    networks:
+      internal:
+        aliases: [moto-valkey]
 
 networks:
   internal: {}
