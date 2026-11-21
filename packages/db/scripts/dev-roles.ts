@@ -10,9 +10,14 @@ const client = new pg.Client({ connectionString: url });
 await client.connect();
 try {
   const quoted = client.escapeLiteral(password);
-  const { rowCount } = await client.query(`SELECT 1 FROM pg_roles WHERE rolname = 'rental_api'`);
-  if (rowCount) {
-    await client.query(`ALTER ROLE rental_api WITH LOGIN PASSWORD ${quoted} NOSUPERUSER NOBYPASSRLS`);
+  const { rows } = await client.query<{ rolsuper: boolean; rolbypassrls: boolean }>(
+    `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'rental_api'`,
+  );
+  if (rows[0]) {
+    // บัญชีที่ไม่ใช่ superuser (rental_owner) แก้ SUPERUSER/BYPASSRLS ไม่ได้ แม้จะเป็นการปิด
+    // จึงตั้งแค่รหัส แล้วตรวจว่า role ยังอยู่ใต้ RLS · ถ้าไม่ใช่ ให้หยุด (ผู้ดูแลต้องแก้ด้วย superuser)
+    if (rows[0].rolsuper || rows[0].rolbypassrls) throw new Error('rental_api must be NOSUPERUSER NOBYPASSRLS (fix with a superuser)');
+    await client.query(`ALTER ROLE rental_api WITH LOGIN PASSWORD ${quoted}`);
   } else {
     await client.query(`CREATE ROLE rental_api WITH LOGIN PASSWORD ${quoted} NOSUPERUSER NOBYPASSRLS IN ROLE rental_app`);
   }
