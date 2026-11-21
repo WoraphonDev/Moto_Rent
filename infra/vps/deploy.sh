@@ -81,7 +81,8 @@ docker compose ps
 # Caddy ของ Friday โหลด site ของเราใหม่ (ไม่ตัดการเชื่อมต่อของ Friday)
 docker exec friday-caddy-1 caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 # สำรองฐานข้อมูลทุกวัน 03:30
-( crontab -l 2>/dev/null | grep -v "$APP_DIR/backup.sh"; echo "30 3 * * * $APP_DIR/backup.sh >> $APP_DIR/backups/backup.log 2>&1" ) | crontab -
+# (ยังไม่มี crontab = crontab -l คืน 1 · ห้ามให้ set -e หยุดสคริปต์)
+{ { crontab -l 2>/dev/null || true; } | grep -v "$APP_DIR/backup.sh" || true; echo "30 3 * * * $APP_DIR/backup.sh >> $APP_DIR/backups/backup.log 2>&1"; } | crontab -
 REMOTE
 
 echo "== ตรวจจากภายนอก"
