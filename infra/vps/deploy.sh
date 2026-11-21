@@ -35,7 +35,9 @@ echo "== เตรียม .env (สุ่มรหัสบนเครื่�
 "${SSH[@]}" APP_DIR="$APP_DIR" APP_HOST="$APP_HOST" TAG="$TAG" 'bash -s' <<'REMOTE'
 set -euo pipefail
 cd "$APP_DIR"
-chmod 700 backup.sh set-r2.sh postgres-init.sh
+chmod 700 backup.sh set-r2.sh
+# postgres (ใน container ไม่ใช่ root) ต้องอ่านได้ตอนสร้างฐานข้อมูลครั้งแรก · ไฟล์นี้ไม่มีรหัส (รหัสมาจาก env)
+chmod 644 postgres-init.sh
 touch .env && chmod 600 .env
 put() { grep -q "^$1=" .env || echo "$1=$2" >> .env; }
 rnd() { openssl rand -hex 24; }
